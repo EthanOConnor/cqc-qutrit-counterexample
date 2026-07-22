@@ -1,0 +1,370 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+Notebook[{
+
+Cell["Exact certificate for a candidate qutrit counterexample to the CQC conjecture", "Title"],
+
+Cell["\
+The complementary-quantum correlation (CQC) conjecture [Schneeloch, \
+Broadbent, Howell, Phys. Rev. A 90, 062119 (2014); arXiv:1404.6496] asserts \
+that for any bipartite state rho_AB and local pairs of mutually unbiased \
+observables (Z^A, X^A), (Z^B, X^B),
+
+    I(Z^A:Z^B) + I(X^A:X^B) <= I(A:B),
+
+where the left side holds classical mutual informations of measurement \
+outcomes and the right side is the quantum mutual information I(A:B) = S(A) \
++ S(B) - S(AB).  The conjecture was proven for pure states, for states with \
+one maximally mixed subsystem, and for minimally disturbing measurements, \
+and was still described as open in Iqbal, Quantum Inf. Process. 25, 250 \
+(2026); arXiv:2509.08286.
+
+This notebook is a self-contained counterexample certificate generated in \
+the same GPT-5.6 Pro-assisted workflow as the repository's Python checks.  It \
+is a structurally separate implementation, not independent expert review.  \
+Its core certificate is exact; the final Holevo-information consistency check \
+uses 40-digit eigensystems.  All logarithms are base 2, and expected outputs are \
+stated in the text before each input cell.  Conventions: a two-qutrit ket |a b> is stored as a \
+9-vector with index 3a + b (a, b = 0, 1, 2); all state vectors here are \
+real, so no conjugation is needed when forming projectors.\
+", "Text"],
+
+Cell[CellGroupData[{
+
+Cell["1. The state", "Section"],
+
+Cell["\
+Inside each qutrit define a logical qubit |0_L> = |0>, |1_L> = (|1> + \
+|2>)/Sqrt[2].  Define two orthonormal vectors in the logical 2x2 subspace:
+
+    phi = (|0_L 0_L> + |1_L 1_L>)/Sqrt[2],
+    chi = (|0_L 0_L> - |1_L 1_L>)/Sqrt[3] - (|0_L 1_L> + |1_L 0_L>)/Sqrt[6],
+
+and the rank-two mixed state rho = (9/10) |phi><phi| + (1/10) |chi><chi|.  \
+The first cell clears every symbol owned by this notebook, then defines the \
+binary entropy h2 and the tensor-product helper kv \
+(Flatten[TensorProduct[...]] gives the 9-vector |u>|v>; note \
+KroneckerProduct of two plain vectors would give a matrix instead).  \
+Expected output of the second cell: {1, 1, 0} (both normalized, mutually \
+orthogonal).\
+", "Text"],
+
+Cell["\
+ClearAll[h2, kv, ket0, ket1, phi, chi, rho, traceOutB, traceOutA, rhoA, \
+ rhoB, PiL, vnEntropy, SA, SB, SAB, IAB, omega, mub, bases, jointTable, \
+ PZ, PX, Pexpected, cmi, IZ, delta, rhoFull, rhoAFull, rhoBFull, \
+ PfullExpected, PZfull, PXfull, IABfull, gapFull, rowT, colT, \
+ eigsABfull, eigsAfull, ratioFull, numFull, denFull, PM2, PM3, IM2, Is, \
+ subsetSums, holevoAB, IZB, IXB];
+h2[p_] := -p Log2[p] - (1 - p) Log2[1 - p];
+kv[u_, v_] := Flatten[TensorProduct[u, v]];\
+", "Input"],
+
+Cell["\
+ket0 = {1, 0, 0}; ket1 = {0, 1/Sqrt[2], 1/Sqrt[2]};
+phi = (kv[ket0, ket0] + kv[ket1, ket1])/Sqrt[2];
+chi = kv[ket0, ket0]/Sqrt[3] - (kv[ket0, ket1] + kv[ket1, ket0])/Sqrt[6] - kv[ket1, ket1]/Sqrt[3];
+Simplify[{phi . phi, chi . chi, phi . chi}]\
+", "Input"],
+
+Cell["\
+Expected: trace 1, rank 2, spectrum {9/10, 1/10, 0, 0, 0, 0, 0, 0, 0}.  \
+Because phi and chi are orthonormal eigenvectors, S(AB) = h2(1/10) exactly.\
+", "Text"],
+
+Cell["\
+rho = 9/10 Outer[Times, phi, phi] + 1/10 Outer[Times, chi, chi];
+{Simplify[Tr[rho]], MatrixRank[rho], Sort[Simplify[Eigenvalues[rho]], Greater]}\
+", "Input"]
+
+}, Open]],
+
+Cell[CellGroupData[{
+
+Cell["2. Marginals and quantum mutual information", "Section"],
+
+Cell["\
+Both reduced states equal half the projector onto the logical qubit, \
+Pi_L/2, with spectrum {1/2, 1/2, 0}: both pure components are maximally \
+entangled on the logical support (the coefficient matrix A_chi of chi \
+satisfies A_chi A_chi^dagger = I/2).  Hence S(A) = S(B) = 1 and
+
+    I(A:B) = 2 - h2(1/10).
+
+Expected outputs: {True, True}, then {1, 1}, then True twice.\
+", "Text"],
+
+Cell["\
+traceOutB[m_] := Table[Sum[m[[3 (a - 1) + b, 3 (ap - 1) + b]], {b, 3}], {a, 3}, {ap, 3}];
+traceOutA[m_] := Table[Sum[m[[3 (a - 1) + b, 3 (a - 1) + bp]], {a, 3}], {b, 3}, {bp, 3}];
+rhoA = Simplify[traceOutB[rho]]; rhoB = Simplify[traceOutA[rho]];
+PiL = Outer[Times, ket0, ket0] + Outer[Times, ket1, ket1];
+{rhoA === Simplify[PiL/2], rhoB === Simplify[PiL/2]}\
+", "Input"],
+
+Cell["\
+vnEntropy[m_] := Total[(-# Log2[#]) & /@ DeleteCases[Simplify[Eigenvalues[m]], 0]];
+SA = Simplify[vnEntropy[rhoA]]; SB = Simplify[vnEntropy[rhoB]];
+SAB = Simplify[vnEntropy[rho]];
+{SA, SB}\
+", "Input"],
+
+Cell["\
+{FullSimplify[SAB - h2[1/10]] === 0,
+ FullSimplify[(IAB = SA + SB - SAB) - (2 - h2[1/10])] === 0}\
+", "Input"]
+
+}, Open]],
+
+Cell[CellGroupData[{
+
+Cell["3. The measurements are genuinely mutually unbiased", "Section"],
+
+Cell["\
+Take the qutrit computational basis Z and the Fourier basis X, i.e. the \
+m = 0 member of the standard prime-dimension MUB family
+
+    |v^m_k> = 3^(-1/2) Sum_j omega^(j k + m j^2) |j>,   omega = e^(2 Pi I/3).
+
+The cell below checks all four qutrit MUBs at once (computational plus m = \
+0, 1, 2; the extra two are used in Section 7): every cross-basis overlap \
+satisfies |<u|v>|^2 = 1/3, so any two distinct bases in the list are \
+mutually unbiased in the full ambient qutrit space, exactly as the \
+conjecture's hypothesis requires.  Expected output: True.\
+", "Text"],
+
+Cell["\
+omega = Exp[2 Pi I/3];
+mub[m_] := Table[omega^(j k + m j j)/Sqrt[3], {j, 0, 2}, {k, 0, 2}];
+bases = {IdentityMatrix[3], mub[0], mub[1], mub[2]};
+Union[Flatten@Table[
+    FullSimplify[ComplexExpand[# Conjugate[#] &[
+       Conjugate[bases[[p, All, i]]] . bases[[q, All, j]]]]],
+    {p, 4}, {q, p + 1, 4}, {i, 3}, {j, 3}]] === {1/3}\
+", "Input"]
+
+}, Open]],
+
+Cell[CellGroupData[{
+
+Cell["4. Exact joint probability tables and classical mutual information", "Section"],
+
+Cell["\
+Measure the same basis on both sides.  jointTable conjugates rho by U \
+tensor U and reads the diagonal.  Both the Z and X tables equal the exact \
+rational matrix
+
+    {{29/60, 1/120, 1/120}, {1/120, 29/240, 29/240}, {1/120, 29/240, 29/240}}
+
+with marginals {1/2, 1/4, 1/4} on each side.  Expected outputs: {True, \
+True}, then the marginals.\
+", "Text"],
+
+Cell["\
+jointTable[r_, U_] := Module[{V = KroneckerProduct[U, U], rr},
+   rr = ConjugateTranspose[V] . r . V;
+   Table[FullSimplify[ComplexExpand[rr[[3 (a - 1) + b, 3 (a - 1) + b]]]], {a, 3}, {b, 3}]];
+PZ = jointTable[rho, IdentityMatrix[3]];
+PX = jointTable[rho, mub[0]];
+Pexpected = {{29/60, 1/120, 1/120}, {1/120, 29/240, 29/240}, {1/120, 29/240, 29/240}};
+{PZ === Pexpected, PX === Pexpected}\
+", "Input"],
+
+Cell["{Total[PZ, {2}], Total[PZ]}", "Input"],
+
+Cell["\
+Coarse-graining outcomes 1 and 2 on each side gives a uniform-input binary \
+symmetric channel with crossover 1/30, and the split of the coarse outcome \
+into two physical outcomes is an independent fair coin on each side \
+(29/240 = (29/60)/4, 1/120 = (1/60)/2), which adds no mutual information.  \
+Hence I(Z^A:Z^B) = I(X^A:X^B) = 1 - h2(1/30).  The cell verifies this \
+identity exactly from the table.  Expected output: True.\
+", "Text"],
+
+Cell["\
+cmi[P_] := Module[{ra = Total[P, {2}], cb = Total[P]},
+   Sum[If[P[[i, j]] === 0, 0, P[[i, j]] Log2[P[[i, j]]/(ra[[i]] cb[[j]])]], {i, 3}, {j, 3}]];
+IZ = cmi[PZ];
+FullSimplify[IZ - (1 - h2[1/30])] === 0\
+", "Input"]
+
+}, Open]],
+
+Cell[CellGroupData[{
+
+Cell["5. The violation and its integer certificate", "Section"],
+
+Cell["\
+The CQC deficit is
+
+    delta = 2 (1 - h2(1/30)) - (2 - h2(1/10)) = h2(1/10) - 2 h2(1/30),
+
+and 30 delta = Log2[29^58/(3^114 10^30)], so delta > 0 is equivalent to the \
+integer inequality 29^58 > 3^114 10^30 -- no floating point needed.  \
+Expected outputs: {True, True, True}, then delta ~ 0.0473109929522169 bits.\
+", "Text"],
+
+Cell["\
+delta = FullSimplify[2 (1 - h2[1/30]) - (2 - h2[1/10])];
+{FullSimplify[delta - (h2[1/10] - 2 h2[1/30])] === 0,
+ FullSimplify[30 delta - Log2[29^58/(3^114 10^30)]] === 0,
+ 29^58 > 3^114 10^30}\
+", "Input"],
+
+Cell["N[delta, 30]", "Input"]
+
+}, Open]],
+
+Cell[CellGroupData[{
+
+Cell["6. Not a rank-boundary artifact", "Section"],
+
+Cell["\
+Add 1% white noise: rho_full = (99/100) rho + (1/100) I/9.  The state \
+becomes full rank with exact spectrum {8029/9000, 901/9000, 1/900 (x7)}, \
+marginal spectrum {299/600, 299/600, 1/300}, and both measurements give
+
+    {{8633/18000, 337/36000, 337/36000},
+     {337/36000, 8693/72000, 8693/72000},
+     {337/36000, 8693/72000, 8693/72000}}.
+
+The violation persists: the gap is ~ 0.0369567802161937 bits > 0.  So the \
+violating set has an open full-rank neighborhood.  Expected outputs: the \
+spectra as stated, then {True, True, the displayed table, positive gap}.\
+", "Text"],
+
+Cell["\
+rhoFull = 99/100 rho + 1/100 IdentityMatrix[9]/9;
+{Sort[Simplify[Eigenvalues[rhoFull]], Greater], MatrixRank[rhoFull]}\
+", "Input"],
+
+Cell["\
+rhoAFull = Simplify[traceOutB[rhoFull]];
+Sort[Simplify[Eigenvalues[rhoAFull]], Greater]\
+", "Input"],
+
+Cell["\
+PfullExpected = {{8633/18000, 337/36000, 337/36000},
+ {337/36000, 8693/72000, 8693/72000},
+ {337/36000, 8693/72000, 8693/72000}};
+PZfull = jointTable[rhoFull, IdentityMatrix[3]];
+PXfull = jointTable[rhoFull, mub[0]];
+IABfull = 2 vnEntropy[rhoAFull] - vnEntropy[rhoFull];
+gapFull = FullSimplify[cmi[PZfull] + cmi[PXfull] - IABfull];
+{PZfull === PfullExpected, PXfull === PfullExpected, PZfull, N[gapFull, 30]}\
+", "Input"],
+
+Cell["\
+The full-rank gap also has an exact integer certificate.  Every \
+probability and eigenvalue above is rational, and 72000 P_ij, 72000 mu (mu \
+a marginal eigenvalue), and 36000 lambda (lambda a joint eigenvalue) are \
+all integers, so 2^(36000 gap_full) assembles term by term into an \
+explicit rational N/D with integer exponents only:
+
+    36000 gap_full = Log2[N/D].
+
+In prime-factor form,
+
+    N = 2^35960 5^35720 89^34532 97^34532 337^2696 8693^34772,
+    D = 7^104356 17^3604 31^32116 37^32116 43^72240 53^3604.
+
+The cell builds the entropy ratio directly from the entropy terms, proves that it equals this \
+explicit N/D, and checks N > D by exact integer comparison.  N and D have \
+315504 and 315103 digits.  Expected output: \
+{True, True, True, {315504, 315103}}.  (Do not print ratioFull itself -- \
+it is a ~630000-digit rational.)\
+", "Text"],
+
+Cell["\
+rowT = Total[PZfull, {2}]; colT = Total[PZfull];
+eigsABfull = DeleteCases[Simplify[Eigenvalues[rhoFull]], 0];
+eigsAfull = DeleteCases[Simplify[Eigenvalues[rhoAFull]], 0];
+numFull = 2^35960 5^35720 89^34532 97^34532 337^2696 8693^34772;
+denFull = 7^104356 17^3604 31^32116 37^32116 43^72240 53^3604;
+ratioFull = Together[
+   Times @@ Flatten[Table[(PZfull[[i, j]]/(rowT[[i]] colT[[j]]))^(72000 PZfull[[i, j]]), {i, 3}, {j, 3}]]*
+    Times @@ ((#^(-36000 #)) & /@ eigsABfull)*
+    Times @@ ((#^(72000 #)) & /@ eigsAfull)];
+{Head[ratioFull] === Rational, ratioFull === numFull/denFull,
+ numFull > denFull, IntegerLength /@ {numFull, denFull}}\
+", "Input"]
+
+}, Open]],
+
+Cell[CellGroupData[{
+
+Cell["7. Supplement: the other two MUBs, ECQC, and Iqbal's sufficient condition", "Section"],
+
+Cell["\
+The remaining two qutrit MUBs (m = 1, 2) yield identical exact tables \
+{{11/60, 19/120, 19/120}, {19/120, 11/240, 11/240}, {19/120, 11/240, \
+11/240}} carrying only ~ 0.0519 bits each.  Iqbal's extended conjecture \
+ECQC (Conjecture 3.1 of arXiv:2509.08286) bounds the minimum over size-3 \
+subsets of the four per-MUB classical mutual informations by I(A:B); the \
+minimizing subset sums to ~ 0.893 < I(A:B) ~ 1.531, so ECQC survives this \
+counterexample -- even though the subset {Z, X, M2} sums to ~ 1.630 > \
+I(A:B).  Expected outputs: True; then {min-subset-sum, I(A:B), \
+ECQC-satisfied, some-subset-exceeds} = {0.893..., 1.531..., True, True}.\
+", "Text"],
+
+Cell["\
+PM2 = jointTable[rho, mub[1]];
+PM3 = jointTable[rho, mub[2]];
+PM2 === PM3 === {{11/60, 19/120, 19/120}, {19/120, 11/240, 11/240}, {19/120, 11/240, 11/240}}\
+", "Input"],
+
+Cell["\
+IM2 = cmi[PM2];
+Is = {IZ, IZ, IM2, IM2};
+subsetSums = Total[Is[[#]]] & /@ Subsets[Range[4], {3}];
+N[{Min[subsetSums], IAB, Min[subsetSums] < IAB, Is[[1]] + Is[[2]] + Is[[3]] > IAB}, 20]\
+", "Input"],
+
+Cell["\
+Consistency with proven results.  Iqbal's Proposition-3 sufficient \
+condition I(Z^A:B) - I_Z + I(X^A:B) - I_X >= Log2[3] - S(A) provably \
+implies CQC, so it must fail here -- and it does: LHS ~ 0.0233 < RHS ~ \
+0.5850.  The proven Coles-Piani bound I(Z^A:B) + I(X^A:B) <= Log2[3] - \
+S(A|B) holds with slack ~ 0.5143.  (The Holevo quantities I(M^A:B) need \
+eigenvalues of conditional 3x3 blocks; they are evaluated from the exact \
+matrices at 40-digit precision.)  Expected output: {0.0233..., 0.5850..., \
+True, 0.5143...}.\
+", "Text"],
+
+Cell["\
+holevoAB[r_, U_] := Module[{rr, acc = 0, blk, p},
+   rr = ConjugateTranspose[KroneckerProduct[U, IdentityMatrix[3]]] . r . KroneckerProduct[U, IdentityMatrix[3]];
+   Do[blk = rr[[3 (a - 1) + 1 ;; 3 a, 3 (a - 1) + 1 ;; 3 a]];
+    p = Simplify[Tr[blk]];
+    If[p =!= 0,
+     acc += p Total[(-# Log2[#]) & /@
+         DeleteCases[Chop[Eigenvalues[N[blk/p, 40]]], x_ /; Abs[x] < 10^-35]]],
+    {a, 3}];
+   vnEntropy[traceOutA[r]] - acc];
+IZB = holevoAB[rho, IdentityMatrix[3]];
+IXB = holevoAB[rho, mub[0]];
+N[{IZB - IZ + IXB - IZ, Log2[3] - SA,
+   IZB - IZ + IXB - IZ < Log2[3] - SA,
+   Log2[3] - (SAB - SB) - (IZB + IXB)}, 20]\
+", "Input"]
+
+}, Open]],
+
+Cell["\
+Summary.  For this state, I(Z^A:Z^B) + I(X^A:X^B) = 2 - 2 h2(1/30) ~ \
+1.5783 exceeds I(A:B) = 2 - h2(1/10) ~ 1.5310 by h2(1/10) - 2 h2(1/30) ~ \
+0.0473 bits, certified by the integer inequality 29^58 > 3^114 10^30.  The \
+state is mixed and its marginals are not maximally mixed.  Section 7 checks \
+the Coles-Piani bound, Iqbal's sufficient condition, and ECQC; the \
+accompanying status note documents the remaining established cases and \
+bounds.  The mechanism: measurements mutually unbiased on \
+the full qutrit cease to be complementary when compressed to the aligned \
+logical-qubit support, so the two classical mutual informations count \
+overlapping logical correlation twice.  See research/cqc-counterexample.md \
+and research/cqc-status.md in this repository for the derivation and the \
+literature status.\
+", "Text"]
+
+},
+StyleDefinitions -> "Default.nb"
+]
