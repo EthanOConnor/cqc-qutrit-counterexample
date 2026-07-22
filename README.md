@@ -1,5 +1,7 @@
 # Exact certificate for a candidate qutrit counterexample to the CQC conjecture
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21499723.svg)](https://doi.org/10.5281/zenodo.21499723)
+
 > **Review status and provenance.** This is a machine-originated candidate
 > counterexample. OpenAI GPT-5.6 Pro generated the construction, derivation,
 > exposition, and initial verification artifacts in response to a research
@@ -144,9 +146,10 @@ mathematics. See [`PROVENANCE.md`](PROVENANCE.md) for the complete statement.
 
 Machine-readable citation metadata is in [`CITATION.cff`](CITATION.cff). Its
 required `authors` field names OpenAI GPT-5.6 Pro as the machine source; Ethan
-O'Connor is listed separately as repository steward and contact. A versioned
-archival DOI should be cited once one has been registered for the public
-release.
+O'Connor is listed separately as repository steward and contact. Cite this
+release using the [version DOI](https://doi.org/10.5281/zenodo.21499723). The
+[concept DOI](https://doi.org/10.5281/zenodo.21499722) resolves to the latest
+archived version.
 
 ## Literature and claim status
 
