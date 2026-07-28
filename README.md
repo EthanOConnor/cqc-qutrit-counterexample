@@ -1,16 +1,15 @@
-# Exact certificate for a candidate qutrit counterexample to the CQC conjecture
+# Exact qutrit counterexample to the CQC conjecture
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21499723.svg)](https://doi.org/10.5281/zenodo.21499723)
 
-> **Review status and provenance.** This is a machine-originated candidate
+> **Review status and provenance.** This is a machine-originated
 > counterexample. OpenAI GPT-5.6 Pro generated the construction, derivation,
 > exposition, and initial verification artifacts in response to a research
 > prompt from Ethan O'Connor. O'Connor is preserving and communicating the
-> artifact but does not claim mathematical authorship, discovery credit, or
-> independent verification. The included exact and numerical checks were
-> generated in the same model-assisted workflow; specialist review of
-> correctness, scope, novelty, and priority is pending. See
-> [`PROVENANCE.md`](PROVENANCE.md).
+> artifact but does not claim mathematical authorship or discovery credit. The
+> exact qutrit certificate has since been independently reproduced outside
+> the model-assisted workflow. Formal peer review and publication remain
+> pending. See [`PROVENANCE.md`](PROVENANCE.md).
 
 Schneeloch, Broadbent, and Howell conjectured that, for any bipartite state
 and locally mutually unbiased measurement pairs,
@@ -108,18 +107,39 @@ Two structurally separate checks are also included:
 ```
 
 The mpmath check starts from separately entered physical-basis amplitudes and
-uses 60-digit arithmetic. The included GitHub Actions workflow is
-configured to run all three Python checks on every push and pull request.
+uses 60-digit arithmetic. The included GitHub Actions workflow runs the
+qutrit certificates, the all-dimension verifier, and a small two-qubit search
+smoke test on every push and pull request.
 
 The Mathematica walkthrough at
 [`notebooks/cqc_counterexample.nb`](notebooks/cqc_counterexample.nb) has an
 exact symbolic core and a high-precision supplement. All 19 input cells were
 evaluated without messages in a fresh Wolfram 14.3 kernel.
 
+## Higher-dimensional extension and qubit question
+
+The same logical-subspace mechanism gives an explicit computational/Fourier
+counterexample in every equal local dimension $d\ge3$, with exact gap
+
+$$
+\Delta_d(\epsilon)=h_2(\epsilon)-2h_2(\epsilon/d).
+$$
+
+The construction has an exact no-go at $d=2$; no different two-qubit
+counterexample has been found. A working note with the derivation, qubit
+reduction, and replacement upper bounds is available as
+[`research/cqc-extensions-and-bounds.pdf`](research/cqc-extensions-and-bounds.pdf),
+with LaTeX source beside it. The full-space family verifier is
+[`scripts/verify_cqc_dimension_family.py`](scripts/verify_cqc_dimension_family.py).
+
 ## Review guide
 
 - [`research/cqc-counterexample.md`](research/cqc-counterexample.md) —
-  self-contained construction and proof.
+  self-contained qutrit construction and proof.
+- [`research/cqc-extensions-and-bounds.pdf`](research/cqc-extensions-and-bounds.pdf) —
+  higher-dimensional family, two-qubit question, and replacement upper bounds.
+- [`research/cqc-extensions-and-bounds.tex`](research/cqc-extensions-and-bounds.tex) —
+  reproducible LaTeX source for the working note.
 - [`research/cqc-status.md`](research/cqc-status.md) — scope of the published
   conjecture, proven special cases, related bounds, Iqbal's sufficient
   condition, and the ECQC extension.
@@ -128,7 +148,8 @@ evaluated without messages in a fresh Wolfram 14.3 kernel.
 - [`PROVENANCE.md`](PROVENANCE.md) — source attribution, repository stewardship,
   and the boundary between automated checks and independent review.
 - [`scripts/`](scripts) — exact SymPy, NumPy, and high-precision mpmath
-  implementations generated within the same model-assisted workflow.
+  implementations, the all-dimension verifier, and an exploratory two-qubit
+  random search.
 - [`notebooks/cqc_counterexample.nb`](notebooks/cqc_counterexample.nb) —
   Mathematica certificate for readers who prefer a notebook.
 
@@ -161,7 +182,8 @@ original CQC conjecture as open. No earlier counterexample was found in the
 targeted terminology, bibliographic databases, or citation records returned
 by those services.
 
-That search is evidence, not proof of priority. The intended next step is
-independent review by specialists and the authors of the relevant CQC papers.
-The automated checks in this repository were produced in the same
-model-assisted workflow and should not be described as independent replication.
+That search is evidence, not proof of priority. The exact qutrit calculation
+has since been independently reproduced outside the model-assisted workflow;
+formal peer review and publication remain pending. The automated checks in this
+repository were produced in the same model-assisted workflow and should not be
+described as independent replication.

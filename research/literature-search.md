@@ -50,8 +50,8 @@ quantum state, and complementarity as an explanation of nonclassicality,”
 This paper derives complementary-measurement information bounds predating the
 CQC conjecture. Its Proposition 2 holds Bob's POVM fixed while Alice switches
 between mutually unbiased bases. That is not the original CQC setup, in which
-both parties switch their local measurements, and it neither states nor supplies
-the present counterexample.
+both parties switch their local measurements, and it neither states nor
+supplies the present counterexample.
 
 ### Schneeloch, Broadbent, and Howell (2014)
 
@@ -61,10 +61,10 @@ mutual information,” *Physical Review A* **90**, 062119 (2014),
 [arXiv:1404.6496](https://arxiv.org/abs/1404.6496).
 
 This is the original conjecture. It quantifies over arbitrary bipartite states
-and arbitrary first local observables, requiring only that the second observable
-on each subsystem be mutually unbiased with its local first observable. It proves
-special cases and reports Monte Carlo searches, including $3\otimes3$, with no
-counterexample.
+and arbitrary first local observables, requiring only that the second
+observable on each subsystem be mutually unbiased with its local first
+observable. It proves special cases and reports Monte Carlo searches,
+including $3\otimes3$, with no counterexample.
 
 ### Alsing et al. (2022)
 
@@ -121,13 +121,14 @@ terminology collision.
 > The attached certificate exactly violates the published CQC inequality. A
 > targeted search of exact terminology, arXiv, Crossref, OpenAlex, Semantic
 > Scholar, and the citation records returned for the original paper through
-> July 22, 2026 found no earlier counterexample. This does not establish
-> novelty or priority; independent expert and author review is pending.
-
+> July 22, 2026 found no earlier counterexample. This does not by itself
+> establish novelty or priority. The exact calculation was independently
+> reproduced after this search record was assembled; formal publication review
+> remains pending.
 
 ## Provenance note
 
 This search record was assembled by OpenAI GPT-5.6 Pro in the same prompted
-workflow that generated the candidate counterexample and its automated checks.
-It is a documented search, not an independent novelty opinion. See
+workflow that generated the counterexample and its automated checks. It is a
+documented search, not an independent novelty opinion. See
 [`../PROVENANCE.md`](../PROVENANCE.md).

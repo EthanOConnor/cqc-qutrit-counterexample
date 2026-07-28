@@ -1,0 +1,177 @@
+\section{The two-qubit case}
+
+\subsection{Exact no-go for this family}
+
+At $d=2$,
+\begin{equation}
+\Delta_2(\eps)=\hbin(\eps)-2\hbin(\eps/2).
+\end{equation}
+Its derivative is
+\begin{equation}
+\Delta_2'(\eps)=\log_2\!\left(\frac{1-\eps}{2-\eps}\right)<0,
+\qquad 0<\eps<1.
+\end{equation}
+Since $\Delta_2(0)=0$,
+\begin{equation}
+\Delta_2(\eps)<0\qquad\text{for every }0<\eps\le1.
+\end{equation}
+
+The structural reason is that for $d>2$ the construction uses a proper local subspace,
+\begin{equation}
+\C^2\subsetneq\C^d.
+\end{equation}
+After compression, the ambient MUBs become less complementary logical measurements, allowing largely overlapping correlations to be counted twice. At $d=2$, the logical support is the entire space and there is no compression mechanism.
+
+\subsection{Could a different two-qubit counterexample exist?}
+
+No such counterexample is known from the present work, and there is no proof here that none exists. Evidence favoring a surviving qubit theorem includes:
+\begin{itemize}
+\item the original search over $10^7$ random $2\otimes2$ states and perturbations of saturating states, with no violation found \cite{Schneeloch2014};
+\item proved CQC cases including pure states, states with a maximally mixed marginal, minimally disturbing measurements, Bell-diagonal and maximally correlated states, and asymmetric Werner states \cite{Schneeloch2014};
+\item exploratory supplementary random sampling and separate multistart numerical optimization over general two-qubit density matrices, with no positive gap found. The repository includes a configurable random-search implementation at \path{scripts/search_cqc_qubit.py}. These calculations are informal numerical evidence only.
+\end{itemize}
+A reasonable working conclusion is
+\begin{equation}
+\text{CQC is false for every }d\ge3,
+\qquad
+\text{while the unrestricted }d=2\text{ case may survive.}
+\end{equation}
+
+\subsection{A useful qubit reduction}
+
+Fix the MUBs to Pauli $Z$ and $X$, without loss of generality, and write a general two-qubit state as
+\begin{equation}
+\rho=\frac14\left[I\otimes I+\mathbf a\cdot\boldsymbol\sigma\otimes I
++I\otimes\mathbf b\cdot\boldsymbol\sigma
++\sum_{i,j}T_{ij}\sigma_i\otimes\sigma_j\right].
+\end{equation}
+For $n=x,z$, the measured binary probabilities are
+\begin{equation}
+p_{st}^{(n)}=\frac14\left(1+s a_n+t b_n+stT_{nn}\right),
+\qquad s,t\in\{\pm1\}.
+\end{equation}
+Thus the classical side depends only on
+\begin{equation}
+a_x,a_z,b_x,b_z,T_{xx},T_{zz},
+\end{equation}
+whereas quantum mutual information depends on the complete positive-semidefinite completion of the Bloch-correlation data.
+
+This suggests a proof strategy: minimize $I(A:B)$ over physical two-qubit states with those six measured moments fixed, then compare that minimum with the two observed classical mutual informations. Any two-qubit counterexample must evade every known proved case: both marginals must be nonmaximally mixed, and none of the four local observables may commute with its corresponding reduced state.
+
+\section{General upper bounds for mixed states and MUBs}
+
+Let
+\begin{equation}
+J_i=I(M_i^A:M_i^B),
+\qquad
+S_m=\sum_{i=1}^{m}J_i,
+\end{equation}
+where the $m$ local measurement pairs are pairwise mutually unbiased in equal dimension $d$.
+
+\subsection{Dimension-only bound}
+
+Since $J_i\le\log_2d$,
+\begin{equation}
+S_m\le m\log_2d.
+\end{equation}
+This is the optimal bound depending only on $d$ and $m$, uniformly over all allowed paired MUB choices, even if the state is required to be strictly mixed. Full-rank depolarized maximally entangled states can approach a maximally entangled state arbitrarily closely. For a fixed collection of possibly mismatched local basis pairs, their cross-party geometry may permit a smaller bound.
+
+\subsection{Conditional-entropy bound}
+
+The Coles--Piani information-exclusion relation for any two MUBs gives \cite{ColesPiani2014,Iqbal2026}
+\begin{equation}
+I(M_i^A:B)+I(M_j^A:B)\le\log_2d-H(A\mid B).
+\end{equation}
+Measuring $B$ cannot increase mutual information, so
+\begin{equation}
+J_i+J_j\le\log_2d-H(A\mid B).
+\end{equation}
+Interchanging $A$ and $B$ gives a second bound. Summing over all $\binom{m}{2}$ pairs, with each $J_i$ appearing $m-1$ times, yields
+\begin{equation}
+S_m\le\frac{m}{2}\min\{\log_2d-H(A\mid B),\ \log_2d-H(B\mid A)\}.
+\end{equation}
+Equivalently,
+\begin{equation}
+S_m\le\frac{m}{2}\left[\log_2d-H(AB)+\min\{H(A),H(B)\}\right].
+\end{equation}
+For two MUBs,
+\begin{equation}
+I_Z+I_X\le\min\{\log_2d-H(A\mid B),\ \log_2d-H(B\mid A)\}.
+\end{equation}
+Subtracting $I(A:B)$ gives
+\begin{equation}
+I_Z+I_X-I(A:B)\le\log_2d-\max\{H(A),H(B)\}.
+\end{equation}
+Consequently:
+\begin{itemize}
+\item if either marginal is maximally mixed, CQC holds;
+\item any violation requires an entropy deficit in both marginals;
+\item that deficit provides a rigorous state-dependent ceiling on the violation.
+\end{itemize}
+For qubits,
+\begin{equation}
+I_Z+I_X-I(A:B)\le1-\max\{H(A),H(B)\}.
+\end{equation}
+
+\subsection{Bounds in terms of global mixedness}
+
+Using $H(A),H(B)\le\log_2d$ gives
+\begin{equation}
+S_m\le m\log_2d-\frac{m}{2}H(AB).
+\end{equation}
+If only the global purity
+\begin{equation}
+\mu=\Tr\rho^2
+\end{equation}
+is known, then $H(AB)\ge-\log_2\mu$, yielding
+\begin{equation}
+S_m\le\frac{m}{2}\log_2(d^2\mu).
+\end{equation}
+For two MUBs,
+\begin{equation}
+I_Z+I_X\le\log_2(d^2\mu),
+\end{equation}
+and for two qubits this becomes $I_Z+I_X\le\log_2(4\mu)$.
+
+\subsection{Outcome-distribution refinement}
+
+The quantum-memory uncertainty relation used in the original CQC analysis implies, for each MUB pair \cite{Berta2010,Schneeloch2014},
+\begin{equation}
+J_i+J_j
+\le I(A:B)+H(M_i^A)+H(M_j^A)-\log_2d-H(A),
+\end{equation}
+and likewise on subsystem $B$. Summing over all pairs gives
+\begin{equation}
+S_m\le\frac{m}{2}I(A:B)
++\min_{P=A,B}\left[
+\sum_{i=1}^{m}H(M_i^P)-\frac{m}{2}\bigl(\log_2d+H(P)\bigr)
+\right].
+\end{equation}
+For two MUBs,
+\begin{equation}
+I_Z+I_X\le I(A:B)+\min\{R_A,R_B\},
+\end{equation}
+where
+\begin{equation}
+R_A=H(Z^A)+H(X^A)-\log_2d-H(A),
+\end{equation}
+and similarly for $B$.
+
+CQC asks whether the mutual information lost when the second subsystem is also measured always compensates for this residual term. The counterexample shows that it need not.
+
+For the all-$d$ family,
+\begin{equation}
+R_A=R_B=\log_2\!\left(\frac{2(d-1)}{d}\right).
+\end{equation}
+This is zero at $d=2$ and positive for every $d>2$, mirroring the dimensional threshold in the counterexample mechanism.
+
+\subsection{Bases that are not exactly mutually unbiased}
+
+For arbitrary orthonormal bases, let $r_{ij}^A$ and $r_{ij}^B$ denote the corresponding information-exclusion overlap constants. Summing the pairwise bounds gives \cite{ColesPiani2014,Iqbal2026}
+\begin{equation}
+S_m\le\min\left\{
+\frac{\sum_{i<j}r_{ij}^A}{m-1}-\frac{m}{2}H(A\mid B),
+\frac{\sum_{i<j}r_{ij}^B}{m-1}-\frac{m}{2}H(B\mid A)
+\right\}.
+\end{equation}
+For exact MUBs, every $r_{ij}=\log_2d$, recovering the preceding result.

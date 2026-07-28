@@ -2,21 +2,15 @@
 
 ## Version 1.0.0 — 2026-07-22
 
-This is the first circulation-ready version of the candidate CQC
-counterexample certificate.
+This is the first circulation-ready version of the CQC counterexample
+certificate.
 
-The public repository is intentionally intended to begin with a single root
-commit containing this complete state. Earlier exploratory and editorial
-history is preserved separately in the private development repository
-`EthanOConnor/cqc-counterexample`; the release tree was assembled from that
-record through commit
-`20ed99a9695dafb609936f4a937b624c14b15b01`, with the repository URL in
-`CITATION.cff` changed to the intended public location.
-
-That collapsed public history is a publication choice, not a claim that the
-root commit marks the first generation of the mathematical content. The source,
-human stewardship, automated verification status, and limits of the present
-review are described in `PROVENANCE.md`.
+The public repository intentionally began with a single root commit containing
+that complete state. Earlier exploratory and editorial history is preserved
+separately in the private development repository. The collapsed public history
+is a publication choice, not a claim that the root commit marks the first
+generation of the mathematical content. Source, stewardship, automated
+verification status, and review limits are described in `PROVENANCE.md`.
 
 ### Included certificate
 
@@ -35,5 +29,12 @@ review are described in `PROVENANCE.md`.
 
 The included implementations were generated in the same model-assisted
 workflow. Their agreement is internal corroboration rather than independent
-expert replication. Correctness, intended scope, novelty, and priority remain
-open to independent human review.
+replication. The release is an immutable record of the exact certificate, not
+a substitute for formal peer review.
+
+## Subsequent development on `main`
+
+The repository now also contains an explicit computational/Fourier family in
+every equal local dimension `d >= 3`, an exact no-go for that family at `d = 2`,
+a working analysis of the unrestricted qubit question, and replacement upper
+bounds. These additions postdate the archived v1.0.0 tree.
