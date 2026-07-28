@@ -2,7 +2,7 @@
 
 Notebook[{
 
-Cell["Exact certificate for a candidate qutrit counterexample to the CQC conjecture", "Title"],
+Cell["Exact qutrit counterexample to the CQC conjecture", "Title"],
 
 Cell["\
 The complementary-quantum correlation (CQC) conjecture [Schneeloch, \
