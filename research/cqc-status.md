@@ -1,15 +1,18 @@
 # Review status and relation to known results
 
-Status checked 2026-07-22 UTC.
+Literature status checked 2026-07-22 UTC; verification status updated 2026-07-28 UTC.
 
 Technical certificate: [cqc-counterexample.md](cqc-counterexample.md).
 Detailed search record: [literature-search.md](literature-search.md).
+
+The exact qutrit calculation has been independently reproduced outside the
+model-assisted workflow. Formal peer review and publication remain pending.
 
 ## The conjecture and its formal scope
 
 - Original statement: Schneeloch, Broadbent, and Howell, *Uncertainty
   relation for mutual information*, Phys. Rev. A 90, 062119 (2014),
-  [arXiv:1404.6496](https://arxiv.org/abs/1404.6496).  Eq. (1) reads
+  [arXiv:1404.6496](https://arxiv.org/abs/1404.6496). Eq. (1) reads
 
   $$
   H(\hat Q^A{:}\hat Q^B)+H(\hat R^A{:}\hat R^B)\le I(A{:}B),
@@ -19,14 +22,14 @@ Detailed search record: [literature-search.md](literature-search.md).
   $\hat R$ observables required only to be mutually unbiased with the
   corresponding $\hat Q$ on each subsystem (footnote [11] defines mutual
   unbiasedness operationally: an eigenstate of one is equally likely to be
-  measured in any eigenstate of the other).  The full text contains no
-  restriction on state rank, support, or marginal spectrum.  The qutrit
+  measured in any eigenstate of the other). The full text contains no
+  restriction on state rank, support, or marginal spectrum. The qutrit
   computational/Fourier pair satisfies the definition exactly; the
   counterexample is squarely inside the quantified domain.
 - Cases proven in the original paper: pure states; states with one
   subsystem maximally mixed (entropy $\log N^A$ of the **full** space);
   minimally disturbing measurements (observable commuting with the reduced
-  state, footnote [12]); asymmetric two-qubit Werner states.  The
+  state, footnote [12]); asymmetric two-qubit Werner states. The
   counterexample state evades all four: it is mixed, its marginals have
   spectrum $(1/2,1/2,0)$, its residual uncertainty
   $H(Z^A)+H(X^A)-\log_2 3-S(A)=0.41504$ is strictly positive, and
@@ -57,17 +60,17 @@ certificate state:
 
 - Iqbal Proposition 3 sufficient condition
   $I(Z^A{:}B)-I_Z+I(X^A{:}B)-I_X\ge\log d-H(A)$: LHS $=0.02333$,
-  RHS $=0.58496$.  The condition **fails** on this state, as it must —
+  RHS $=0.58496$. The condition **fails** on this state, as it must —
   it provably implies CQC.
 - Coles–Piani bound $I(Z^A{:}B)+I(X^A{:}B)\le\log d-S(A|B)$: holds with
-  slack $0.51432$.  No proven theorem is violated; only the conjectured
+  slack $0.51432$. No proven theorem is violated; only the conjectured
   universal statement fails.
 - Extended conjecture ECQC (Iqbal Conjecture 3.1, all $d+1=4$ qutrit
   MUBs, minimum over size-3 subsets of the per-MUB classical mutual
   informations): the two extra MUBs carry almost no correlation
   ($0.05192$ bits each), the minimizing subset sums to $0.89300 <
   I(A{:}B)=1.53100$, so **ECQC is not violated** — margin $-0.63800$,
-  and $-0.63169$ for the 1%-white-noise full-rank state.  Notably the
+  and $-0.63169$ for the 1%-white-noise full-rank state. Notably the
   subset $\{Z,X,M_2\}$ sums to $1.63024 > I(A{:}B)$; ECQC survives
   because the minimizing triple excludes one of the two high-mutual-information
   bases. This construction therefore does not violate ECQC, which remains the
@@ -104,17 +107,19 @@ certificate state:
   subspace mechanism is unavailable.
 - Targeted web searches for a published counterexample, violation, or
   disproof of the CQC relation found nothing.
-- Not conclusive: a manual Google Scholar pass and direct contact with
-  Schneeloch, Broadbent, Howell, and Iqbal remain the outstanding steps
-  before any public priority claim.
+- Not conclusive: bibliographic coverage remains incomplete, and formal
+  publication review is still required before treating novelty or priority as
+  settled.
 
 ## Current claim
 
 > The attached certificate exactly violates the published CQC inequality. A
 > targeted search of exact terminology, arXiv, Crossref, OpenAlex, Semantic
 > Scholar, and the citation records returned for the original paper through
-> July 22, 2026 found no earlier counterexample. This does not establish
-> novelty or priority; independent expert and author review is pending.
+> July 22, 2026 found no earlier counterexample. This does not by itself
+> establish novelty or priority. The exact calculation has since been
+> independently reproduced outside the model-assisted workflow; formal peer
+> review and publication remain pending.
 
 ## Verification status
 
@@ -122,11 +127,11 @@ Three separately implemented programs agree to at least 20 significant digits
 (`scripts/verify_cqc_numpy.py`, `scripts/verify_cqc_exact.py`,
 `scripts/verify_cqc_mpmath.py`). The technical note also gives a direct
 algebraic derivation of the probability tables and sign certificate. The sign
-of the violation
-reduces to the integer inequality $29^{58}>3^{114}\cdot10^{30}$, checked
-in exact integer arithmetic. The exact verifier now also derives the
-full-rank state and marginal spectra and both measurement tables directly,
-then proves the 1%-white-noise gap positive through the exact certificate
+of the violation reduces to the integer inequality
+$29^{58}>3^{114}\cdot10^{30}$, checked in exact integer arithmetic. The exact
+verifier now also derives the full-rank state and marginal spectra and both
+measurement tables directly, then proves the 1%-white-noise gap positive
+through the exact certificate
 
 $$
 36000\Delta_{\mathrm{full}}=\log_2(N/D),\qquad N>D,
@@ -134,7 +139,6 @@ $$
 
 with the prime factorizations of $N$ and $D$ displayed in
 [cqc-counterexample.md](cqc-counterexample.md).
-
 
 ## Provenance of the certificate
 
