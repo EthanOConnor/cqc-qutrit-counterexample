@@ -5,8 +5,9 @@ Literature status checked 2026-07-22 UTC; verification status updated 2026-07-28
 Technical certificate: [cqc-counterexample.md](cqc-counterexample.md).
 Detailed search record: [literature-search.md](literature-search.md).
 
-The exact qutrit calculation has been independently reproduced outside the
-model-assisted workflow. Formal peer review and publication remain pending.
+The state and reported violation have been independently reviewed and confirmed
+numerically outside the model-assisted workflow. Formal peer review and
+publication remain pending.
 
 ## The conjecture and its formal scope
 
@@ -117,9 +118,9 @@ certificate state:
 > targeted search of exact terminology, arXiv, Crossref, OpenAlex, Semantic
 > Scholar, and the citation records returned for the original paper through
 > July 22, 2026 found no earlier counterexample. This does not by itself
-> establish novelty or priority. The exact calculation has since been
-> independently reproduced outside the model-assisted workflow; formal peer
-> review and publication remain pending.
+> establish novelty or priority. The state and reported violation have since
+> been independently reviewed and confirmed numerically outside the
+> model-assisted workflow; formal peer review and publication remain pending.
 
 ## Verification status
 

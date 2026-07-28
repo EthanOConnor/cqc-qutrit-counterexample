@@ -25,9 +25,10 @@ but no claimed human mathematical author.
 The SymPy, NumPy, mpmath, and Mathematica checks were generated within the same
 model-assisted exchange. They are structurally different and include exact
 finite certificates, but their agreement is internal corroboration rather than
-independent replication. The qutrit certificate has subsequently been
-independently reproduced outside the model-assisted workflow; formal peer
-review and publication are separate later steps.
+independent replication. The state and reported violation have subsequently
+been independently reviewed and confirmed numerically outside the
+model-assisted workflow; formal peer review and publication are separate later
+steps.
 
 A commit, release, timestamp, or DOI establishes what artifact existed when.
 It does not establish correctness, novelty, authorship, priority, or
@@ -35,8 +36,8 @@ entitlement to discovery credit. Rapid circulation is not review, and several
 checks produced by one model are not several independent witnesses.
 
 The durable scientific object here is the smallest inspectable certificate
-together with an accurate provenance record. Prompting, custody, and
-communication are contributions and should be acknowledged as such; they
+together with an accurate provenance record. Prompting, custody,
+and communication are contributions and should be acknowledged as such; they
 should not be retroactively converted into derivation or verification.
 Independent confirmation, correction, extension, or exposition are separate
 contributions and should be credited in the records where they are made

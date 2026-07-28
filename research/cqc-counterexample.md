@@ -14,14 +14,14 @@ repository steward does not claim mathematical authorship or independent
 verification. See [`../PROVENANCE.md`](../PROVENANCE.md).
 
 The finite certificate has been checked symbolically and by two structurally
-separate numerical implementations generated within that same workflow. It has
-subsequently been independently reproduced outside the model-assisted
-workflow. A literature search through July 22, 2026 found no earlier
-counterexample, and the most recent directly relevant version-of-record
-article found still described the conjecture as open. That search does **not**
-by itself establish novelty or priority. See
-[cqc-status.md](cqc-status.md) for the source record, proven cases, related
-bounds, and search limitations.
+separate numerical implementations generated within that same workflow. The
+state and reported violation have subsequently been independently reviewed and
+confirmed numerically outside the model-assisted workflow. A literature search
+through July 22, 2026 found no earlier counterexample, and the most recent
+directly relevant version-of-record article found still described the
+conjecture as open. That search does **not** by itself establish novelty or
+priority. See [cqc-status.md](cqc-status.md) for the source record, proven
+cases, related bounds, and search limitations.
 
 ## Published conjecture
 
@@ -315,8 +315,9 @@ python3 -m venv .venv
 
 The appropriate current claims are:
 
-1. **Certificate:** exactly verified against the published CQC inequality and
-   independently reproduced outside the model-assisted workflow.
+1. **Certificate:** exactly verified against the published CQC inequality. The
+   state and reported violation have also been independently reviewed and
+   confirmed numerically outside the model-assisted workflow.
 2. **Published status through July 22, 2026:** the latest directly relevant
    paper found still called the conjecture open.
 3. **Novelty and priority:** no earlier counterexample was found in the

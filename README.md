@@ -7,9 +7,9 @@
 > exposition, and initial verification artifacts in response to a research
 > prompt from Ethan O'Connor. O'Connor is preserving and communicating the
 > artifact but does not claim mathematical authorship or discovery credit. The
-> exact qutrit certificate has since been independently reproduced outside
-> the model-assisted workflow. Formal peer review and publication remain
-> pending. See [`PROVENANCE.md`](PROVENANCE.md).
+> state and reported violation have since been independently reviewed and
+> confirmed numerically outside the model-assisted workflow. Formal peer review
+> and publication remain pending. See [`PROVENANCE.md`](PROVENANCE.md).
 
 Schneeloch, Broadbent, and Howell conjectured that, for any bipartite state
 and locally mutually unbiased measurement pairs,
@@ -182,8 +182,8 @@ original CQC conjecture as open. No earlier counterexample was found in the
 targeted terminology, bibliographic databases, or citation records returned
 by those services.
 
-That search is evidence, not proof of priority. The exact qutrit calculation
-has since been independently reproduced outside the model-assisted workflow;
-formal peer review and publication remain pending. The automated checks in this
-repository were produced in the same model-assisted workflow and should not be
-described as independent replication.
+That search is evidence, not proof of priority. The state and reported
+violation have since been independently reviewed and confirmed numerically
+outside the model-assisted workflow; formal peer review and publication remain
+pending. The automated checks in this repository were produced in the same
+model-assisted workflow and should not be described as independent replication.
