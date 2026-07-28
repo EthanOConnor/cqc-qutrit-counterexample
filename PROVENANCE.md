@@ -1,6 +1,6 @@
 # Provenance, attribution, and responsibility
 
-This repository records a candidate mathematical result that originated in a
+This repository records a mathematical result that originated in a
 ChatGPT session using OpenAI GPT-5.6 Pro.
 
 Ethan O'Connor supplied a broad research prompt asking for an easily
@@ -24,8 +24,10 @@ but no claimed human mathematical author.
 
 The SymPy, NumPy, mpmath, and Mathematica checks were generated within the same
 model-assisted exchange. They are structurally different and include exact
-finite certificates, but their agreement is internal corroboration, not
-independent replication.
+finite certificates, but their agreement is internal corroboration rather than
+independent replication. The qutrit certificate has subsequently been
+independently reproduced outside the model-assisted workflow; formal peer
+review and publication are separate later steps.
 
 A commit, release, timestamp, or DOI establishes what artifact existed when.
 It does not establish correctness, novelty, authorship, priority, or
@@ -33,11 +35,12 @@ entitlement to discovery credit. Rapid circulation is not review, and several
 checks produced by one model are not several independent witnesses.
 
 The durable scientific object here is the smallest inspectable certificate
-together with an accurate provenance record. Prompting, custody,
-and communication are contributions and should be acknowledged as such; they
-should not be retroactively converted into derivation or verification. If
-specialists independently confirm, correct, extend, or explain the result,
-those are separate contributions and should be credited with names and dates.
+together with an accurate provenance record. Prompting, custody, and
+communication are contributions and should be acknowledged as such; they
+should not be retroactively converted into derivation or verification.
+Independent confirmation, correction, extension, or exposition are separate
+contributions and should be credited in the records where they are made
+public.
 
 The repository is released under CC0-1.0. The dedication applies only to the
 extent that the steward or later contributors hold copyright or related rights
@@ -45,7 +48,7 @@ that can be waived or licensed. It does not assert that mathematical facts or
 machine-generated material are copyrightable, that the steward authored the
 mathematics, or that third-party rights have been cleared.
 
-This repository is circulated as a timestamped candidate counterexample. Any
+This repository is circulated as a timestamped counterexample. Any
 citation or report should preserve the chronology and distinguish:
 
 - model generation of the mathematical content;
