@@ -1,0 +1,61 @@
+\section{A compact follow-up research program}
+
+The calculations suggest three tightly linked projects:
+\begin{enumerate}
+\item \textbf{Formalize the $d\ge3$ family.} Prove the computational/Fourier result in full generality, then verify or correct the arbitrary-MUB adaptation.
+\item \textbf{Resolve the qubit case.} Use the six-moment reduction to formulate a constrained minimization or semidefinite-relaxation proof. A counterexample search should focus outside every known proved class.
+\item \textbf{Sharpen replacement bounds.} Determine the best bound as a function of dimension, number and geometry of measurement bases, marginal entropies, global entropy or purity, and perhaps local support dimensions.
+\end{enumerate}
+
+\section{Current answers to the motivating questions}
+
+\begin{tcolorbox}[colback=cqcpale,colframe=cqcblue!60!black,boxrule=0.55pt,arc=1.5pt,left=6pt,right=6pt,top=5pt,bottom=5pt]
+\textbf{Higher dimensions.} Yes: the computational/Fourier family gives an explicit counterexample in every $d\times d$ system with $d\ge3$, with closed-form gap $\Delta_d(\eps)=\hbin(\eps)-2\hbin(\eps/d)$. The same compression argument appears to adapt the construction to any prescribed local MUB pair.
+
+\textbf{Two qubits.} No two-qubit counterexample is known from this work. This higher-dimensional family has an exact no-go at $d=2$, and exploratory searches have found no alternative. The unrestricted qubit case remains open and may survive as a separate theorem.
+
+\textbf{Replacement bounds.} Conditional-entropy, mixedness, purity, outcome-distribution, and basis-overlap bounds remain valid and provide a structured replacement for the failed universal inequality.
+\end{tcolorbox}
+
+\section*{Reproducibility}
+
+The qutrit exact certificate, all-dimension verifier, and exploratory two-qubit search are in the public repository:
+\begin{itemize}
+\item \path{scripts/verify_cqc_exact.py};
+\item \path{scripts/verify_cqc_dimension_family.py};
+\item \path{scripts/search_cqc_qubit.py}.
+\end{itemize}
+The exact qutrit result and the algebraic formulas above do not depend on the numerical searches.
+
+\begin{thebibliography}{9}
+\bibitem{Schneeloch2014}
+J. Schneeloch, C. J. Broadbent, and J. C. Howell,
+``Uncertainty relation for mutual information,''
+\emph{Physical Review A} \textbf{90}, 062119 (2014).
+\href{https://doi.org/10.1103/PhysRevA.90.062119}{doi:10.1103/PhysRevA.90.062119}.
+
+\bibitem{Iqbal2026}
+H. Iqbal,
+``On the CQC conjecture: a sufficient condition and an extension,''
+\emph{Quantum Information Processing} \textbf{25}, 250 (2026).
+\href{https://doi.org/10.1007/s11128-026-05258-2}{doi:10.1007/s11128-026-05258-2}.
+
+\bibitem{Berta2010}
+M. Berta, M. Christandl, R. Colbeck, J. M. Renes, and R. Renner,
+``The uncertainty principle in the presence of quantum memory,''
+\emph{Nature Physics} \textbf{6}, 659--662 (2010).
+\href{https://doi.org/10.1038/nphys1734}{doi:10.1038/nphys1734}.
+
+\bibitem{ColesPiani2014}
+P. J. Coles and M. Piani,
+``Improved entropic uncertainty relations and information exclusion relations,''
+\emph{Physical Review A} \textbf{89}, 022112 (2014).
+\href{https://doi.org/10.1103/PhysRevA.89.022112}{doi:10.1103/PhysRevA.89.022112}.
+\end{thebibliography}
+
+\vfill
+{\footnotesize\color{cqcgray}
+This working note is part of the public record at
+\url{https://github.com/EthanOConnor/cqc-qutrit-counterexample}.
+The repository's \texttt{PROVENANCE.md} gives the complete attribution and review-status statement.
+}
