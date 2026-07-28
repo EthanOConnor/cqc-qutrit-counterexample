@@ -39,3 +39,9 @@ jobs:
 
       - name: Run high-precision mpmath certificate
         run: python scripts/verify_cqc_mpmath.py
+
+      - name: Run all-dimension family verifier
+        run: python scripts/verify_cqc_dimension_family.py --max-d 10
+
+      - name: Smoke-test exploratory two-qubit search
+        run: python scripts/search_cqc_qubit.py --samples-per-rank 500 --batch-size 250
