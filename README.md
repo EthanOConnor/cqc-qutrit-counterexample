@@ -1,6 +1,6 @@
 # Exact qutrit counterexample to the CQC conjecture
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21499723.svg)](https://doi.org/10.5281/zenodo.21499723)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21499722.svg)](https://doi.org/10.5281/zenodo.21499722)
 
 > **Review status and provenance.** This is a machine-originated
 > counterexample. OpenAI GPT-5.6 Pro generated the construction, derivation,
