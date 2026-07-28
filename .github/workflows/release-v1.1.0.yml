@@ -1,0 +1,59 @@
+name: Publish v1.1.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".release-v1.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.1.0 >/dev/null 2>&1; then
+            echo "v1.1.0 already exists"
+            exit 0
+          fi
+
+          cat > /tmp/release-notes.md <<'EOF'
+          This release adds the higher-dimensional CQC counterexample family,
+          the working note on the two-qubit question and replacement upper
+          bounds, and reproducible verification/search programs.
+
+          Highlights:
+
+          - exact computational/Fourier counterexamples in every equal local
+            dimension d >= 3;
+          - the closed gap formula h2(epsilon) - 2 h2(epsilon/d);
+          - a proof that this family cannot violate CQC at d = 2;
+          - a reproducible exploratory search over general two-qubit states;
+          - the revised PDF `research/cqc-extensions-and-bounds.pdf` and LaTeX
+            source;
+          - corrected review-status wording: the state and reported violation
+            were independently reviewed and confirmed numerically, while the
+            exact integer certificate remains internally generated and openly
+            checkable;
+          - citation metadata updated to version 1.1.0.
+
+          Formal peer review and publication remain pending. Provenance is
+          recorded in `PROVENANCE.md`.
+          EOF
+
+          gh release create v1.1.0 \
+            --target "$GITHUB_SHA" \
+            --title "v1.1.0 — higher-dimensional extension and bounds" \
+            --notes-file /tmp/release-notes.md \
+            --latest
