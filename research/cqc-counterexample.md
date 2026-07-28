@@ -1,4 +1,4 @@
-# Exact certificate for a candidate qutrit counterexample to the CQC conjecture
+# Exact qutrit counterexample to the CQC conjecture
 
 ## Status and scope
 
@@ -14,13 +14,14 @@ repository steward does not claim mathematical authorship or independent
 verification. See [`../PROVENANCE.md`](../PROVENANCE.md).
 
 The finite certificate has been checked symbolically and by two structurally
-separate numerical implementations generated within that same workflow. A
-literature search through July 22, 2026 found no earlier counterexample, and
-the most recent directly relevant version-of-record article found still
-described the conjecture as open. That search does **not** establish novelty or
-priority, and the automated agreement does not constitute independent expert
-review. See [cqc-status.md](cqc-status.md) for the source record, proven cases,
-related bounds, and search limitations.
+separate numerical implementations generated within that same workflow. It has
+subsequently been independently reproduced outside the model-assisted
+workflow. A literature search through July 22, 2026 found no earlier
+counterexample, and the most recent directly relevant version-of-record
+article found still described the conjecture as open. That search does **not**
+by itself establish novelty or priority. See
+[cqc-status.md](cqc-status.md) for the source record, proven cases, related
+bounds, and search limitations.
 
 ## Published conjecture
 
@@ -314,12 +315,13 @@ python3 -m venv .venv
 
 The appropriate current claims are:
 
-1. **Certificate:** exactly verified against the published CQC inequality.
-2. **Status through July 22, 2026:** the latest directly relevant published
+1. **Certificate:** exactly verified against the published CQC inequality and
+   independently reproduced outside the model-assisted workflow.
+2. **Published status through July 22, 2026:** the latest directly relevant
    paper found still called the conjecture open.
-3. **Novelty and priority:** not established by database searches; external
-   review is required before making a public priority claim. The included
-   automated checks are not independent expert replication.
+3. **Novelty and priority:** no earlier counterexample was found in the
+   documented search, but database searches alone do not establish priority.
+   Formal peer review and publication remain pending.
 
-The immediate next step is private review by the original authors and by Hasan
-Iqbal, author of the 2026 follow-up.
+Higher-dimensional consequences and the two-qubit question are developed in
+[cqc-extensions-and-bounds.pdf](cqc-extensions-and-bounds.pdf).
