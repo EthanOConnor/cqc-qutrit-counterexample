@@ -1,0 +1,4 @@
+    try:
+        main()
+    finally:
+        spice.kclear()
