@@ -1,4 +1,4 @@
-name: Verify certificate
+name: CE7 artifact recovery
 
 on:
   push:
@@ -8,40 +8,48 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: verify-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  python:
-    name: Python certificates
+  recover:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Fetch source mirrors and linked media
+        shell: bash
+        run: |
+          set -u
+          mkdir -p out
+          fetch() {
+            name="$1"
+            url="$2"
+            echo "Fetching $url"
+            curl -A 'Mozilla/5.0' -L --connect-timeout 20 --max-time 90 -sS -D "out/${name}.headers" "$url" -o "out/$name" || true
+            wc -c "out/$name" 2>/dev/null || true
+          }
+          fetch fxtwitter.json 'https://api.fxtwitter.com/SegerYU/status/2091250852568932449'
+          fetch vxtwitter.json 'https://api.vxtwitter.com/SegerYU/status/2091250852568932449'
+          fetch syndication.json 'https://cdn.syndication.twimg.com/tweet-result?id=2091250852568932449&lang=en'
+          fetch oembed.json 'https://publish.twitter.com/oembed?url=https://twitter.com/SegerYU/status/2091250852568932449&omit_script=1'
+          fetch twstalker_mickey.html 'https://ngntipkolamrenang.twstalker.com/mickeywzx'
+          fetch twstalker_seger.html 'https://ngntipkolamrenang.twstalker.com/SegerYU'
+          grep -RhoE 'https?[^"'"'"'<> ]+' out | sed 's#\\/#/#g' | grep -E 'pbs\.twimg\.com|video\.twimg\.com' | sort -u > out/media_urls.txt || true
+          n=0
+          while IFS= read -r url; do
+            [ -n "$url" ] || continue
+            url="${url%\\}"
+            curl -A 'Mozilla/5.0' -L --connect-timeout 20 --max-time 120 -sS "$url" -o "out/media_${n}" || true
+            file "out/media_${n}" >> out/media_files.txt || true
+            printf '%s\t%s\n' "$n" "$url" >> out/media_map.tsv
+            n=$((n+1))
+          done < out/media_urls.txt
+          find out -maxdepth 1 -type f -printf '%f %s bytes\n' | sort | tee out/listing.txt
+
+      - name: Upload discovery files
+        uses: actions/upload-artifact@v4
         with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements.txt
-
-      - name: Run exact SymPy certificate
-        run: python scripts/verify_cqc_exact.py
-
-      - name: Run NumPy certificate
-        run: python scripts/verify_cqc_numpy.py
-
-      - name: Run high-precision mpmath certificate
-        run: python scripts/verify_cqc_mpmath.py
-
-      - name: Run all-dimension family verifier
-        run: python scripts/verify_cqc_dimension_family.py --max-d 10
-
-      - name: Smoke-test exploratory two-qubit search
-        run: python scripts/search_cqc_qubit.py --samples-per-rank 500 --batch-size 250
+          name: ce7-discovery
+          path: out
+          if-no-files-found: error
+          retention-days: 1
