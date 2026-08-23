@@ -1,0 +1,125 @@
+    rows = []
+    for a, b in zip(cuts[:-1], cuts[1:]):
+        start = pd.Timestamp(times[a])
+        end = pd.Timestamp(times[b - 1]) + pd.Timedelta(minutes=CADENCE_MIN)
+        rows.append(
+            {
+                "state": "sun_visible" if state[a] else "dark",
+                "start_utc": start.isoformat(),
+                "end_utc_exclusive": end.isoformat(),
+                "duration_hours": (b - a) * CADENCE_MIN / 60.0,
+                "mean_visible_fraction": float(df["visible_fraction"].iloc[a:b].mean()),
+                "max_visible_fraction": float(df["visible_fraction"].iloc[a:b].max()),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def yearly_summary(df: pd.DataFrame, daily: pd.DataFrame, runs: pd.DataFrame) -> pd.DataFrame:
+    work = df.copy()
+    work["year"] = work["utc"].dt.year
+    dt_h = CADENCE_MIN / 60.0
+    rows = []
+    for year, g in work.groupby("year"):
+        subset_runs = runs[pd.to_datetime(runs["start_utc"]).dt.year == year]
+        vis_runs = subset_runs[subset_runs["state"] == "sun_visible"]
+        dark_runs = subset_runs[subset_runs["state"] == "dark"]
+        rows.append(
+            {
+                "year": int(year),
+                "effective_sun_hours": float(g["visible_fraction"].sum() * dt_h),
+                "any_sun_hours": float(g["any_visible"].sum() * dt_h),
+                "full_disk_sun_hours": float(g["full_disk_visible"].sum() * dt_h),
+                "fraction_time_any_sun": float(g["any_visible"].mean()),
+                "mean_visible_fraction": float(g["visible_fraction"].mean()),
+                "longest_visible_run_hours": float(vis_runs["duration_hours"].max()) if len(vis_runs) else 0.0,
+                "longest_dark_run_hours": float(dark_runs["duration_hours"].max()) if len(dark_runs) else 0.0,
+            }
+        )
+    return pd.DataFrame(rows)
+
+# --------------------------- plots ---------------------------
+def style_axes(ax: plt.Axes) -> None:
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.grid(True, color=COLORS["grid"], linewidth=0.7, alpha=0.7)
+    ax.tick_params(colors=COLORS["text"])
+    ax.xaxis.label.set_color(COLORS["text"])
+    ax.yaxis.label.set_color(COLORS["text"])
+
+
+def save_main_plot(df: pd.DataFrame) -> None:
+    t = df["utc"]
+    sun = df["sun_elevation_deg"].to_numpy()
+    hor = df["terrain_horizon_deg"].to_numpy()
+    frac = df["visible_fraction"].to_numpy()
+    any_vis = frac > 0.0
+    center_vis = sun > hor
+
+    ylo = min(-3.2, float(np.nanpercentile(np.r_[sun, hor], 0.1)) - 0.25)
+    yhi = max(3.2, float(np.nanpercentile(np.r_[sun, hor], 99.9)) + 0.25)
+    fig, ax = plt.subplots(figsize=(17, 9.5), constrained_layout=True)
+    ax.set_facecolor(COLORS["night_bg"])
+    ax.fill_between(t, ylo, yhi, where=any_vis, step="mid", color=COLORS["day_bg"], alpha=1.0, linewidth=0, rasterized=True)
+    ax.plot(t, hor, color=COLORS["horizon"], linewidth=1.0, label="Terrain horizon at Sun azimuth", zorder=3)
+    ax.plot(t, sun, color=COLORS["solar"], linewidth=1.15, label="Solar-center elevation", zorder=4)
+    ax.fill_between(t, hor, sun, where=center_vis, color=COLORS["visible"], alpha=0.45, linewidth=0, zorder=2, rasterized=True)
+    ax.axhline(0.0, color=COLORS["zero"], linewidth=0.8, linestyle="--", label="Reference horizontal")
+
+    # Hourly colored visibility ribbon along the lower edge, still within the same plot.
+    hourly = np.arange(0, len(df), max(1, 60 // CADENCE_MIN))
+    ribbon_y = ylo + 0.055 * (yhi - ylo)
+    vis_cmap = LinearSegmentedColormap.from_list("ce7vis", ["#6c757d", "#ffd166", "#e76f51"])
+    ax.scatter(t.iloc[hourly], np.full(hourly.size, ribbon_y), c=frac[hourly], cmap=vis_cmap, vmin=0, vmax=1,
+               s=5, marker="s", linewidths=0, zorder=5, rasterized=True)
+    ax.text(t.iloc[0], ribbon_y + 0.035 * (yhi - ylo), "apparent solar-disk visibility (gray → orange)",
+            fontsize=9, color=COLORS["text"], ha="left", va="bottom")
+
+    ax.set_ylim(ylo, yhi)
+    ax.set_xlim(t.iloc[0], t.iloc[-1])
+    ax.set_ylabel("Elevation above local horizontal (degrees)", fontsize=12)
+    ax.set_xlabel("Time (UTC)", fontsize=12)
+    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1, 7)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    for lab in ax.get_xticklabels():
+        lab.set_rotation(24)
+        lab.set_ha("right")
+    style_axes(ax)
+    title = "CE-7 preselected landing site — terrain-aware solar visibility"
+    subtitle = (
+        f"{abs(SITE_LAT_DEG):.4f}°S, {SITE_LON_E_DEG:.4f}°E  •  observer {OBSERVER_HEIGHT_M:.1f} m above ground  •  "
+        "5 m local / 20–40 m regional LOLA terrain  •  10-minute cadence"
+    )
+    ax.set_title(title + "\n" + subtitle, loc="left", fontsize=18, color=COLORS["text"], pad=16)
+    handles = [
+        Line2D([0], [0], color=COLORS["solar"], lw=1.5, label="Solar-center elevation"),
+        Line2D([0], [0], color=COLORS["horizon"], lw=1.5, label="Terrain horizon at Sun azimuth"),
+        Line2D([0], [0], color=COLORS["visible"], lw=7, alpha=0.55, label="Solar center above terrain"),
+        Line2D([0], [0], color=COLORS["zero"], lw=1.0, ls="--", label="0° reference horizontal"),
+    ]
+    ax.legend(handles=handles, loc="upper right", frameon=False, ncol=2, fontsize=9)
+    fig.text(0.01, 0.01,
+             "Finite solar disk included. Yellow background means at least part of the disk is visible. "
+             "Terrain horizon includes lunar curvature. Not an official mission product.",
+             fontsize=9, color="#4f5963")
+    fig.savefig(OUT / "ce7_terrain_aware_illumination_2026-2029.png", dpi=220)
+    # For compact vector output, use hourly data.
+    fig.savefig(OUT / "ce7_terrain_aware_illumination_2026-2029.svg")
+    plt.close(fig)
+
+
+def save_daily_plot(daily: pd.DataFrame) -> None:
+    dates = pd.to_datetime(daily["date_utc"])
+    fig, ax = plt.subplots(figsize=(16, 7), constrained_layout=True)
+    ax.fill_between(dates, 0, daily["any_sun_hours"], color=COLORS["partial"], alpha=0.30, label="Any part of Sun visible")
+    ax.plot(dates, daily["effective_sun_hours"], color=COLORS["solar"], lw=1.35, label="Effective full-Sun-equivalent hours")
+    ax.plot(dates, daily["full_disk_sun_hours"], color=COLORS["horizon"], lw=0.9, alpha=0.9, label="Full disk visible")
+    ax.set_ylim(0, 24)
+    ax.set_ylabel("Hours per UTC day")
+    ax.set_xlabel("UTC date")
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    for lab in ax.get_xticklabels():
+        lab.set_rotation(24)
+        lab.set_ha("right")
+    style_axes(ax)
+    ax.set_title("CE-7 site — daily terrain-aware illumination\nVisible solar-disk fraction integrated at 10-minute cadence",

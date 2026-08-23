@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Terrain-aware illumination analysis for the public CE-7 preselected landing point."""
+
+from __future__ import annotations
+
+import csv
+import gzip
+import hashlib
+import json
+import math
+import os
+import shutil
+from dataclasses import dataclass
+from datetime import timedelta
+from pathlib import Path
+from typing import Iterable
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+from matplotlib.colors import LightSource, LinearSegmentedColormap
+from matplotlib.lines import Line2D
+import numpy as np
+import pandas as pd
+import rasterio
+from scipy.ndimage import map_coordinates
+import spiceypy as spice
+
+# --------------------------- configuration ---------------------------
+SITE_LAT_DEG = -88.8
+SITE_LON_E_DEG = 123.5
+OBSERVER_HEIGHT_M = 1.5
+MOON_RADIUS_M = 1_737_400.0
+START_UTC = "2026-09-01T00:00:00Z"
+END_UTC = "2029-01-01T00:00:00Z"  # exclusive
+CADENCE_MIN = 10
+AZ_STEP_DEG = 0.1
+N_DISK_SAMPLES = 257
+
+ROOT = Path(os.environ.get("CE7_WORKDIR", ".")).resolve()
+TERRAIN = ROOT / "terrain"
+KERNELS = ROOT / "kernels"
+OUT = ROOT / "out"
+OUT.mkdir(parents=True, exist_ok=True)
+
+LOCAL5 = TERRAIN / "ce7_local_5m.tif"
+MID20 = TERRAIN / "ce7_mid_20m.tif"
+FAR40 = TERRAIN / "ce7_far_40m.tif"
+
+SOURCE_TWEET = "https://x.com/SegerYU/status/2091250852568932449"
+TERRAIN_FOLLOWUP_TWEET = "https://x.com/SegerYU/status/2091269371452878981"
+SITE_MAP_TWEET = "https://x.com/SegerYU/status/2090711863655018573"
+
+COLORS = {
+    "solar": "#e76f51",
+    "visible": "#f4a261",
+    "partial": "#f6bd60",
+    "horizon": "#264653",
+    "zero": "#4a4a4a",
+    "day_bg": "#fff6d6",
+    "night_bg": "#e8ebef",
+    "grid": "#d6d8dc",
+    "text": "#20252b",
+}
+
+
+def file_sha256(path: Path, block_size: int = 1024 * 1024) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while True:
+            block = f.read(block_size)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+# --------------------------- raster handling ---------------------------
+@dataclass
+class RasterGrid:
+    name: str
+    path: Path
+    data: np.ndarray
+    transform: rasterio.Affine
+    nodata: float | None
+
+    @classmethod
+    def open(cls, name: str, path: Path) -> "RasterGrid":
+        with rasterio.open(path) as ds:
+            arr = ds.read(1).astype(np.float32)
+            nodata = ds.nodata
+            transform = ds.transform
+            scales = ds.scales
+            offsets = ds.offsets
+        if scales and scales[0] not in (None, 1.0):
+            arr = arr * float(scales[0])
+        if offsets and offsets[0] not in (None, 0.0):
+            arr = arr + float(offsets[0])
+        if nodata is not None and np.isfinite(nodata):
+            arr[arr == nodata] = np.nan
+        arr[~np.isfinite(arr)] = np.nan
+        return cls(name=name, path=path, data=arr, transform=transform, nodata=nodata)
+
+    @property
+    def pixel_size_m(self) -> float:
+        return abs(float(self.transform.a))
+
+    @property
+    def bounds(self) -> tuple[float, float, float, float]:
+        h, w = self.data.shape
+        x0 = self.transform.c
+        y0 = self.transform.f
+        x1 = x0 + self.transform.a * w
+        y1 = y0 + self.transform.e * h
+        return min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
+
+    def sample_bilinear(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        # GDAL affine coordinates refer to pixel corners; ndimage indexes pixel centers.
+        col = (x - self.transform.c) / self.transform.a - 0.5
+        row = (y - self.transform.f) / self.transform.e - 0.5
+        vals = map_coordinates(
+            self.data,
+            [row, col],
+            order=1,
+            mode="constant",

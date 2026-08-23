@@ -1,0 +1,125 @@
+            p = np.asarray(p, dtype=np.float64)
+            if p.shape != (part.size, 3):
+                raise ValueError(f"unexpected vectorized SPICE shape {p.shape}")
+            out[i0:i1] = p
+        except Exception:
+            for j, et in enumerate(part, start=i0):
+                out[j] = spice.spkpos("SUN", float(et), frame, "LT+S", "MOON")[0]
+        if i0 % (chunk * 8) == 0:
+            print(f"SPICE Sun positions: {i1}/{ets.size}")
+    return out
+
+
+def periodic_interp(az_deg: np.ndarray, grid_az: np.ndarray, grid_values: np.ndarray) -> np.ndarray:
+    az = np.mod(az_deg, 360.0)
+    xp = np.concatenate([grid_az, [360.0]])
+    fp = np.concatenate([grid_values, [grid_values[0]]])
+    return np.interp(az, xp, fp)
+
+
+def compute_solar_visibility(horizon_df: pd.DataFrame, ground_elevation_m: float) -> tuple[pd.DataFrame, dict]:
+    frame, kernel_paths = load_kernels()
+    times = pd.date_range(START_UTC, END_UTC, freq=f"{CADENCE_MIN}min", inclusive="left", tz="UTC")
+    n = len(times)
+    et0 = spice.str2et("2026-09-01T00:00:00 UTC")
+    ets = et0 + np.arange(n, dtype=np.float64) * CADENCE_MIN * 60.0
+    sun_center_km = spkpos_many(ets, frame)
+
+    lat = math.radians(SITE_LAT_DEG)
+    lon = math.radians(SITE_LON_E_DEG)
+    up = np.array([math.cos(lat) * math.cos(lon), math.cos(lat) * math.sin(lon), math.sin(lat)])
+    east = np.array([-math.sin(lon), math.cos(lon), 0.0])
+    north = np.array([-math.sin(lat) * math.cos(lon), -math.sin(lat) * math.sin(lon), math.cos(lat)])
+    obs_km = ((MOON_RADIUS_M + ground_elevation_m + OBSERVER_HEIGHT_M) / 1000.0) * up
+    vec = sun_center_km - obs_km[None, :]
+    dist_km = np.linalg.norm(vec, axis=1)
+    unit = vec / dist_km[:, None]
+    sun_alt = np.degrees(np.arcsin(np.clip(unit @ up, -1.0, 1.0)))
+    sun_az = np.degrees(np.arctan2(unit @ east, unit @ north)) % 360.0
+    sun_radius_km = float(spice.bodvrd("SUN", "RADII", 3)[1][0])
+    solar_radius = np.degrees(np.arcsin(np.clip(sun_radius_km / dist_km, 0.0, 1.0)))
+
+    grid_az = horizon_df["azimuth_deg"].to_numpy()
+    grid_h = horizon_df["horizon_elevation_deg"].to_numpy()
+    center_h = periodic_interp(sun_az, grid_az, grid_h)
+
+    # Equal-area sunflower samples across the apparent solar disk.
+    k = np.arange(N_DISK_SAMPLES, dtype=np.float64)
+    rr = np.sqrt((k + 0.5) / N_DISK_SAMPLES)
+    theta = k * (math.pi * (3.0 - math.sqrt(5.0)))
+    disk_x = rr * np.cos(theta)
+    disk_y = rr * np.sin(theta)
+    visible_fraction = np.empty(n, dtype=np.float32)
+    chunk = 4096
+    for i0 in range(0, n, chunk):
+        i1 = min(i0 + chunk, n)
+        alt_c = sun_alt[i0:i1, None]
+        az_c = sun_az[i0:i1, None]
+        rad = solar_radius[i0:i1, None]
+        cos_alt = np.maximum(np.cos(np.radians(alt_c)), 0.95)
+        point_alt = alt_c + disk_y[None, :] * rad
+        point_az = az_c + disk_x[None, :] * rad / cos_alt
+        point_h = periodic_interp(point_az.ravel(), grid_az, grid_h).reshape(point_az.shape)
+        visible_fraction[i0:i1] = np.mean(point_alt > point_h, axis=1).astype(np.float32)
+
+    df = pd.DataFrame(
+        {
+            "utc": times,
+            "sun_elevation_deg": sun_alt,
+            "sun_azimuth_deg": sun_az,
+            "terrain_horizon_deg": center_h,
+            "solar_angular_radius_deg": solar_radius,
+            "visible_fraction": visible_fraction,
+        }
+    )
+    df["any_visible"] = df["visible_fraction"] > 0.0
+    df["center_visible"] = df["sun_elevation_deg"] > df["terrain_horizon_deg"]
+    df["full_disk_visible"] = df["visible_fraction"] >= 1.0
+    df["geometric_center_above_zero"] = df["sun_elevation_deg"] > 0.0
+
+    kernel_meta = []
+    for p in kernel_paths:
+        kernel_meta.append(
+            {
+                "filename": p.name,
+                "size_bytes": p.stat().st_size,
+                "sha256": file_sha256(p),
+            }
+        )
+    meta = {
+        "spice_frame": frame,
+        "kernels": kernel_meta,
+        "time_start_utc": START_UTC,
+        "time_end_utc_exclusive": END_UTC,
+        "cadence_minutes": CADENCE_MIN,
+        "solar_disk_samples": N_DISK_SAMPLES,
+    }
+    return df, meta
+
+# --------------------------- summaries ---------------------------
+def make_daily(df: pd.DataFrame) -> pd.DataFrame:
+    work = df.copy()
+    work["date_utc"] = work["utc"].dt.date
+    dt_h = CADENCE_MIN / 60.0
+    daily = work.groupby("date_utc", sort=True).agg(
+        effective_visible_fraction=("visible_fraction", "mean"),
+        mean_sun_elevation_deg=("sun_elevation_deg", "mean"),
+        max_sun_elevation_deg=("sun_elevation_deg", "max"),
+        min_sun_elevation_deg=("sun_elevation_deg", "min"),
+        samples=("visible_fraction", "size"),
+        any_visible_samples=("any_visible", "sum"),
+        full_disk_visible_samples=("full_disk_visible", "sum"),
+    ).reset_index()
+    # Effective sun-hours equals integral of visible solar-disk fraction.
+    # On complete days this is mean fraction * 24, but compute from samples explicitly.
+    eff = work.groupby("date_utc")["visible_fraction"].sum().to_numpy() * dt_h
+    daily["effective_sun_hours"] = eff
+    daily["any_sun_hours"] = daily["any_visible_samples"] * dt_h
+    daily["full_disk_sun_hours"] = daily["full_disk_visible_samples"] * dt_h
+    return daily
+
+
+def contiguous_runs(df: pd.DataFrame) -> pd.DataFrame:
+    state = df["any_visible"].to_numpy(dtype=bool)
+    times = df["utc"].to_numpy()
+    cuts = np.flatnonzero(np.r_[True, state[1:] != state[:-1], True])

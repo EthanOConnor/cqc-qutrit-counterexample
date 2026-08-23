@@ -1,0 +1,125 @@
+
+## Selected summary
+
+{year_table}
+
+- Longest interval with any solar disk visible: **{lv.get('duration_hours', float('nan')):.2f} h**, starting `{lv.get('start_utc', 'n/a')}`.
+- Longest fully dark interval: **{ld.get('duration_hours', float('nan')):.2f} h**, starting `{ld.get('start_utc', 'n/a')}`.
+- Terrain-horizon elevation range: **{horizon.horizon_elevation_deg.min():.3f}° to {horizon.horizon_elevation_deg.max():.3f}°**.
+
+## Files
+
+- `ce7_terrain_aware_illumination_2026-2029.png` / `.svg` — main terrain-aware chart in the style of the source plot.
+- `ce7_daily_illumination_2026-2029.png` / `.svg` — daily effective sunlight.
+- `ce7_terrain_horizon.png` / `.svg` — azimuthal terrain horizon.
+- `ce7_site_terrain_map.png` / `.svg` — terrain context around the planning point.
+- `ce7_illumination_10min.csv.gz` — complete 10-minute ephemeris and visibility series.
+- `ce7_daily_illumination.csv` — daily summary.
+- `ce7_horizon_0p1deg.csv` — terrain horizon profile and controlling distance/source.
+- `ce7_visibility_runs.csv` — contiguous light/dark intervals.
+- `ce7_yearly_summary.csv` — yearly aggregate statistics.
+- `metadata.json` — coordinate, raster, kernel, and method metadata including SHA-256 hashes.
+
+## Limitations
+
+This calculation does not include boulders or relief below the DEM's effective resolution, lander self-shadowing, mast/panel geometry, touchdown-location dispersion, local slope-dependent panel incidence, reflected light, or operational power thresholds. At grazing incidence, meter-scale position or elevation changes can move individual transitions. The chart is an engineering-style public-data reconstruction, not a Chinese Lunar Exploration Program product.
+
+## Public references
+
+- Original terrain-free chart: {SOURCE_TWEET}
+- Terrain-aware follow-up giving coordinate and +1.5 m height: {TERRAIN_FOLLOWUP_TWEET}
+- Site terrain post: {SITE_MAP_TWEET}
+- NASA PGDA 5 m south-pole mosaic: https://pgda.gsfc.nasa.gov/products/81
+- NASA PGDA wider south-pole DEMs: https://pgda.gsfc.nasa.gov/products/90
+- Barker et al. (2021), *Improved LOLA Elevation Maps for South Pole Landing Sites*, doi:10.1016/j.pss.2020.105119
+- Barker et al. (2023), *A New View of the Lunar South Pole from LOLA*, doi:10.3847/PSJ/acf3e1
+"""
+
+
+def main() -> None:
+    local = RasterGrid.open("local_5m", LOCAL5)
+    mid = RasterGrid.open("mid_20m", MID20)
+    far = RasterGrid.open("far_40m", FAR40)
+    sx, sy = site_projected_xy()
+    ground = float(local.sample_bilinear(np.array([sx]), np.array([sy]))[0])
+    if not np.isfinite(ground):
+        raise RuntimeError("Site elevation is not finite in local 5 m DEM")
+    print(f"Site projected x/y: {sx:.3f}, {sy:.3f} m; ground elevation {ground:.3f} m")
+
+    horizon = compute_horizon(local, mid, far, ground)
+    horizon.to_csv(OUT / "ce7_horizon_0p1deg.csv", index=False, float_format="%.8f")
+
+    df, solar_meta = compute_solar_visibility(horizon, ground)
+    write_csv_gz(df, OUT / "ce7_illumination_10min.csv.gz")
+    daily = make_daily(df)
+    daily.to_csv(OUT / "ce7_daily_illumination.csv", index=False, float_format="%.8f")
+    runs = contiguous_runs(df)
+    runs.to_csv(OUT / "ce7_visibility_runs.csv", index=False, float_format="%.8f")
+    yearly = yearly_summary(df, daily, runs)
+    yearly.to_csv(OUT / "ce7_yearly_summary.csv", index=False, float_format="%.8f")
+
+    save_main_plot(df)
+    save_daily_plot(daily)
+    save_horizon_plot(horizon)
+    save_terrain_map(mid, ground)
+
+    raster_meta = {}
+    for r in (local, mid, far):
+        raster_meta[r.name] = {
+            "filename": r.path.name,
+            "pixel_size_m": r.pixel_size_m,
+            "shape": list(map(int, r.data.shape)),
+            "bounds_projected_m": list(map(float, r.bounds)),
+            "sha256": file_sha256(r.path),
+        }
+
+    source_manifest_path = TERRAIN / "source_manifest.json"
+    source_manifest = json.loads(source_manifest_path.read_text()) if source_manifest_path.exists() else {}
+    metadata = {
+        "analysis_name": "CE-7 preselected landing point terrain-aware illumination",
+        "generated_utc": pd.Timestamp.now(tz="UTC").isoformat(),
+        "site": {
+            "latitude_deg_planetocentric": SITE_LAT_DEG,
+            "longitude_deg_east": SITE_LON_E_DEG,
+            "projected_x_m": sx,
+            "projected_y_m": sy,
+            "dem_ground_elevation_m": ground,
+            "observer_height_above_ground_m": OBSERVER_HEIGHT_M,
+            "moon_reference_radius_m": MOON_RADIUS_M,
+        },
+        "terrain": {
+            "source_manifest": source_manifest,
+            "azimuth_step_deg": AZ_STEP_DEG,
+            "local_sample_interval_m": 5.0,
+            "local_limit_m": 15000.0,
+            "mid_sample_interval_m": 20.0,
+            "mid_limit_m": 54000.0,
+            "far_sample_interval_m": 40.0,
+            "far_start_m": 54040.0,
+            "far_limit_m": 220000.0,
+            "rasters": raster_meta,
+        },
+        "solar": solar_meta,
+        "source_posts": {
+            "original_terrain_free": SOURCE_TWEET,
+            "terrain_aware_coordinate_followup": TERRAIN_FOLLOWUP_TWEET,
+            "site_terrain_map": SITE_MAP_TWEET,
+        },
+    }
+    (OUT / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    readme = build_readme(ground, horizon, solar_meta, yearly, runs, raster_meta)
+    (OUT / "README.md").write_text(readme, encoding="utf-8")
+
+    # Checksums after all files exist, excluding the checksum file itself.
+    lines = []
+    for p in sorted(OUT.iterdir()):
+        if p.is_file() and p.name != "SHA256SUMS.txt":
+            lines.append(f"{file_sha256(p)}  {p.name}")
+    (OUT / "SHA256SUMS.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    print("Output files:")
+    for p in sorted(OUT.iterdir()):
+        print(f"  {p.name}: {p.stat().st_size:,} bytes")
+
+
+if __name__ == "__main__":

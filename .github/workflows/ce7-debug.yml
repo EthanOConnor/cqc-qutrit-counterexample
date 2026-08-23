@@ -1,0 +1,31 @@
+name: CE7 script assembly diagnostic
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble script
+        shell: bash
+        run: |
+          set -x
+          cat tools/ce7_generate.py.part* > ce7_generate.py
+          sha256sum ce7_generate.py | tee ce7_generate.sha256
+          wc -l -c ce7_generate.py | tee ce7_generate.size
+          python3 -m py_compile ce7_generate.py 2>&1 | tee py_compile.log || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ce7-script-diagnostic
+          path: |
+            ce7_generate.py
+            ce7_generate.sha256
+            ce7_generate.size
+            py_compile.log
+          retention-days: 1

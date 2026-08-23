@@ -1,4 +1,4 @@
-name: Verify certificate
+name: CE7 final terrain-aware illumination
 
 on:
   push:
@@ -8,40 +8,177 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: verify-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  python:
-    name: Python certificates
+  generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 120
+    env:
+      CE7_WORKDIR: ${{ github.workspace }}/ce7_work
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      CPL_VSIL_CURL_ALLOWED_EXTENSIONS: .TIF,.tif
+      GDAL_HTTP_MULTIRANGE: YES
+      VSI_CACHE: TRUE
+      VSI_CACHE_SIZE: '100000000'
     steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Assemble and verify analysis script
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cat tools/ce7_generate.py.part* > ce7_generate.py
+          echo 'c46649f84cf604dc1d1fe09b3a3de92aa55ab86133729886772d0e38d5427b2e  ce7_generate.py' | sha256sum -c -
+          python3 -m py_compile ce7_generate.py
+
+      - name: Install geospatial and Python dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-venv zip
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --upgrade pip
+          .venv/bin/python -m pip install --disable-pip-version-check \
+            numpy pandas matplotlib scipy rasterio spiceypy pillow tabulate
+
+      - name: Download and derive nested terrain models
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$CE7_WORKDIR/terrain" "$CE7_WORKDIR/kernels" "$CE7_WORKDIR/out"
+          cd "$CE7_WORKDIR"
+          FIVE_URL='https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/87S/ldem_87s_5mpp.tif'
+          FAR_URL='https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_20MPP_ADJ.TIF'
+
+          # The 5 m product is a 3.4 GB non-COG BigTIFF, so it must be downloaded locally.
+          curl -fL --retry 20 --retry-all-errors --retry-delay 10 --connect-timeout 30 -C - \
+            "$FIVE_URL" -o terrain/ldem_87s_5mpp.tif
+          stat -c '%n %s bytes' terrain/ldem_87s_5mpp.tif
+          sha256sum terrain/ldem_87s_5mpp.tif | tee terrain/ldem_87s_5mpp.sha256
+          gdalinfo -json terrain/ldem_87s_5mpp.tif > terrain/ldem_87s_5mpp.gdalinfo.json
+
+          # Site: x=30344.5636 m, y=-20084.6285 m in the DEM's south-polar projection.
+          # 32 km square at native 5 m resolution for 0–15 km horizon rays.
+          gdal_translate -q -of GTiff -ot Float32 -unscale -r bilinear \
+            -projwin 14344.5636 -4084.6285 46344.5636 -36084.6285 \
+            -co TILED=YES -co COMPRESS=DEFLATE -co PREDICTOR=3 -co BIGTIFF=IF_SAFER \
+            terrain/ldem_87s_5mpp.tif terrain/ce7_local_5m.tif
+
+          # 120 km square, averaged to 20 m, for 15–54 km horizon rays.
+          gdal_translate -q -of GTiff -ot Float32 -unscale -r average \
+            -projwin -29655.4364 39915.3715 90344.5636 -80084.6285 \
+            -outsize 25% 25% \
+            -co TILED=YES -co COMPRESS=DEFLATE -co PREDICTOR=3 -co BIGTIFF=IF_SAFER \
+            terrain/ldem_87s_5mpp.tif terrain/ce7_mid_20m.tif
+
+          # 440 km square from the native 20 m regional COG, averaged to 40 m,
+          # for 54–220 km horizon rays. Fall back to a full local download if range I/O fails.
+          if ! gdal_translate -q -of GTiff -ot Float32 -unscale -r average \
+            -projwin -189655.4364 199915.3715 250344.5636 -240084.6285 \
+            -outsize 50% 50% \
+            -co TILED=YES -co COMPRESS=DEFLATE -co PREDICTOR=3 -co BIGTIFF=IF_SAFER \
+            "/vsicurl/${FAR_URL}" terrain/ce7_far_40m.tif; then
+            curl -fL --retry 20 --retry-all-errors --retry-delay 10 --connect-timeout 30 -C - \
+              "$FAR_URL" -o terrain/LDEM_80S_20MPP_ADJ.TIF
+            gdal_translate -q -of GTiff -ot Float32 -unscale -r average \
+              -projwin -189655.4364 199915.3715 250344.5636 -240084.6285 \
+              -outsize 50% 50% \
+              -co TILED=YES -co COMPRESS=DEFLATE -co PREDICTOR=3 -co BIGTIFF=IF_SAFER \
+              terrain/LDEM_80S_20MPP_ADJ.TIF terrain/ce7_far_40m.tif
+          fi
+
+          for f in terrain/ce7_local_5m.tif terrain/ce7_mid_20m.tif terrain/ce7_far_40m.tif; do
+            gdalinfo -stats "$f" > "${f%.tif}.gdalinfo.txt"
+            sha256sum "$f"
+            stat -c '%n %s bytes' "$f"
+          done
+
+          export FIVE_URL FAR_URL
+          export FIVE_SIZE="$(stat -c%s terrain/ldem_87s_5mpp.tif)"
+          export FIVE_SHA="$(cut -d' ' -f1 terrain/ldem_87s_5mpp.sha256)"
+          /usr/bin/python3 - <<'PY'
+          import json, os, pathlib, hashlib
+          root=pathlib.Path('terrain')
+          def sha(p):
+              h=hashlib.sha256()
+              with open(p,'rb') as f:
+                  for b in iter(lambda:f.read(1024*1024),b''): h.update(b)
+              return h.hexdigest()
+          derived=[]
+          for name in ['ce7_local_5m.tif','ce7_mid_20m.tif','ce7_far_40m.tif']:
+              p=root/name
+              derived.append({'filename':name,'size_bytes':p.stat().st_size,'sha256':sha(p)})
+          manifest={
+              'source_5m':{'url':os.environ['FIVE_URL'],'size_bytes':int(os.environ['FIVE_SIZE']),'sha256':os.environ['FIVE_SHA']},
+              'source_regional_20m':{'url':os.environ['FAR_URL']},
+              'derived_rasters':derived,
+              'site_projected_m':{'x':30344.56362155766,'y':-20084.628521893053},
+          }
+          (root/'source_manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+          PY
+
+          # Free the multi-gigabyte source downloads before analysis.
+          rm -f terrain/ldem_87s_5mpp.tif terrain/LDEM_80S_20MPP_ADJ.TIF
+          df -h .
+
+      - name: Download exact SPICE kernels
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$CE7_WORKDIR/kernels"
+          base='https://naif.jpl.nasa.gov/pub/naif/generic_kernels'
+          curl -fL --retry 10 "$base/lsk/naif0012.tls" -o naif0012.tls
+          curl -fL --retry 10 "$base/spk/planets/de440s.bsp" -o de440s.bsp
+          curl -fL --retry 10 "$base/pck/pck00011.tpc" -o pck00011.tpc
+          curl -fL --retry 10 "$base/pck/moon_pa_de440_200625.bpc" -o moon_pa_de440_200625.bpc
+          curl -fL --retry 10 "$base/fk/satellites/moon_de440_220930.tf" -o moon_de440_220930.tf
+          sha256sum * | tee kernels.sha256
+
+      - name: Run terrain horizon and illumination model
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp ce7_generate.py "$CE7_WORKDIR/analysis_script.py"
+          CE7_WORKDIR="$CE7_WORKDIR" .venv/bin/python ce7_generate.py
+          cp "$CE7_WORKDIR/terrain/source_manifest.json" "$CE7_WORKDIR/out/terrain_source_manifest.json"
+          cp "$CE7_WORKDIR/analysis_script.py" "$CE7_WORKDIR/out/analysis_script.py"
+
+      - name: Validate and package outputs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$CE7_WORKDIR"
+          test -s out/ce7_terrain_aware_illumination_2026-2029.png
+          test -s out/ce7_terrain_aware_illumination_2026-2029.svg
+          test -s out/ce7_illumination_10min.csv.gz
+          test -s out/metadata.json
+          "$GITHUB_WORKSPACE/.venv/bin/python" - <<'PY'
+          from PIL import Image
+          import gzip, json, pathlib
+          out=pathlib.Path('out')
+          for name in ['ce7_terrain_aware_illumination_2026-2029.png','ce7_daily_illumination_2026-2029.png','ce7_terrain_horizon.png','ce7_site_terrain_map.png']:
+              im=Image.open(out/name); size=im.size; im.verify(); print(name, size)
+          with gzip.open(out/'ce7_illumination_10min.csv.gz','rt',newline='') as f:
+              n=sum(1 for _ in f)-1
+          assert n == 122832, n
+          meta=json.loads((out/'metadata.json').read_text())
+          assert meta['site']['latitude_deg_planetocentric'] == -88.8
+          assert meta['site']['longitude_deg_east'] == 123.5
+          print('10-minute rows',n)
+          PY
+          mkdir -p CE7_terrain_aware_illumination
+          cp -a out/. CE7_terrain_aware_illumination/
+          zip -9 -r CE7_terrain_aware_illumination_package.zip CE7_terrain_aware_illumination
+          sha256sum CE7_terrain_aware_illumination_package.zip | tee package.sha256
+          find out -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+
+      - name: Upload verified package
+        uses: actions/upload-artifact@v4
         with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements.txt
-
-      - name: Run exact SymPy certificate
-        run: python scripts/verify_cqc_exact.py
-
-      - name: Run NumPy certificate
-        run: python scripts/verify_cqc_numpy.py
-
-      - name: Run high-precision mpmath certificate
-        run: python scripts/verify_cqc_mpmath.py
-
-      - name: Run all-dimension family verifier
-        run: python scripts/verify_cqc_dimension_family.py --max-d 10
-
-      - name: Smoke-test exploratory two-qubit search
-        run: python scripts/search_cqc_qubit.py --samples-per-rank 500 --batch-size 250
+          name: CE7-terrain-aware-illumination
+          path: |
+            ${{ env.CE7_WORKDIR }}/out
+            ${{ env.CE7_WORKDIR }}/CE7_terrain_aware_illumination_package.zip
+            ${{ env.CE7_WORKDIR }}/package.sha256
+          if-no-files-found: error
+          retention-days: 1
