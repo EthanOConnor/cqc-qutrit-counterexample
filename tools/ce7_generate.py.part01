@@ -1,0 +1,125 @@
+            cval=np.nan,
+            prefilter=False,
+        )
+        return vals
+
+
+def project_south_polar(lat_rad: np.ndarray, lon_rad: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    rho = 2.0 * MOON_RADIUS_M * np.tan(np.pi / 4.0 + lat_rad / 2.0)
+    return rho * np.sin(lon_rad), rho * np.cos(lon_rad)
+
+
+def site_projected_xy() -> tuple[float, float]:
+    lat = math.radians(SITE_LAT_DEG)
+    lon = math.radians(SITE_LON_E_DEG)
+    rho = 2.0 * MOON_RADIUS_M * math.tan(math.pi / 4.0 + lat / 2.0)
+    return rho * math.sin(lon), rho * math.cos(lon)
+
+
+def geodesic_targets(az_rad: np.ndarray, distances_m: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Spherical direct geodesic from site. Returns lat, lon, central angle arrays."""
+    lat1 = math.radians(SITE_LAT_DEG)
+    lon1 = math.radians(SITE_LON_E_DEG)
+    delta = distances_m[None, :] / MOON_RADIUS_M
+    az = az_rad[:, None]
+    sin1, cos1 = math.sin(lat1), math.cos(lat1)
+    sind, cosd = np.sin(delta), np.cos(delta)
+    sin_lat2 = sin1 * cosd + cos1 * sind * np.cos(az)
+    sin_lat2 = np.clip(sin_lat2, -1.0, 1.0)
+    lat2 = np.arcsin(sin_lat2)
+    lon2 = lon1 + np.arctan2(
+        np.sin(az) * sind * cos1,
+        cosd - sin1 * sin_lat2,
+    )
+    return lat2, lon2, delta
+
+
+def apparent_elevation_deg(target_h_m: np.ndarray, delta_rad: np.ndarray, observer_radius_m: float) -> np.ndarray:
+    rt = MOON_RADIUS_M + target_h_m
+    vertical = rt * np.cos(delta_rad) - observer_radius_m
+    horizontal = rt * np.sin(delta_rad)
+    return np.degrees(np.arctan2(vertical, horizontal))
+
+
+def compute_horizon(
+    local: RasterGrid,
+    mid: RasterGrid,
+    far: RasterGrid,
+    ground_elevation_m: float,
+) -> pd.DataFrame:
+    az_deg = np.arange(0.0, 360.0, AZ_STEP_DEG, dtype=np.float64)
+    az_rad_all = np.radians(az_deg)
+    observer_radius = MOON_RADIUS_M + ground_elevation_m + OBSERVER_HEIGHT_M
+
+    segments = [
+        (local, np.arange(5.0, 15_000.0 + 0.1, 5.0, dtype=np.float64)),
+        (mid, np.arange(15_020.0, 54_000.0 + 0.1, 20.0, dtype=np.float64)),
+        (far, np.arange(54_040.0, 220_000.0 + 0.1, 40.0, dtype=np.float64)),
+    ]
+
+    all_h = np.full((len(segments), az_deg.size), -np.inf, dtype=np.float64)
+    all_d = np.full((len(segments), az_deg.size), np.nan, dtype=np.float64)
+    chunk = 80
+
+    for seg_i, (raster, distances) in enumerate(segments):
+        print(f"Horizon segment {raster.name}: {distances.size} radial samples × {az_deg.size} azimuths")
+        delta_1d = distances / MOON_RADIUS_M
+        for i0 in range(0, az_deg.size, chunk):
+            i1 = min(i0 + chunk, az_deg.size)
+            lat2, lon2, delta = geodesic_targets(az_rad_all[i0:i1], distances)
+            x, y = project_south_polar(lat2, lon2)
+            h = raster.sample_bilinear(x, y)
+            elev = apparent_elevation_deg(h, delta, observer_radius)
+            elev[~np.isfinite(elev)] = -np.inf
+            idx = np.argmax(elev, axis=1)
+            mx = elev[np.arange(i1 - i0), idx]
+            all_h[seg_i, i0:i1] = mx
+            all_d[seg_i, i0:i1] = distances[idx]
+
+    source_i = np.argmax(all_h, axis=0)
+    horizon = all_h[source_i, np.arange(az_deg.size)]
+    distance = all_d[source_i, np.arange(az_deg.size)]
+    source_names = np.array([s[0].name for s in segments], dtype=object)[source_i]
+    invalid = ~np.isfinite(horizon)
+    if invalid.any():
+        raise RuntimeError(f"No finite terrain horizon for {invalid.sum()} azimuth bins")
+
+    return pd.DataFrame(
+        {
+            "azimuth_deg": az_deg,
+            "horizon_elevation_deg": horizon,
+            "controlling_distance_m": distance,
+            "controlling_source": source_names,
+            "local_5m_candidate_deg": all_h[0],
+            "mid_20m_candidate_deg": all_h[1],
+            "far_40m_candidate_deg": all_h[2],
+        }
+    )
+
+# --------------------------- solar ephemeris ---------------------------
+def load_kernels() -> tuple[str, list[Path]]:
+    kernel_paths = [
+        KERNELS / "naif0012.tls",
+        KERNELS / "de440s.bsp",
+        KERNELS / "pck00011.tpc",
+        KERNELS / "moon_pa_de440_200625.bpc",
+        KERNELS / "moon_de440_220930.tf",
+    ]
+    for p in kernel_paths:
+        if not p.exists():
+            raise FileNotFoundError(p)
+        spice.furnsh(str(p))
+    preferred = "MOON_ME_DE440_ME421"
+    frame = preferred if spice.namfrm(preferred) != 0 else "IAU_MOON"
+    print("SPICE frame:", frame, "ID", spice.namfrm(frame))
+    return frame, kernel_paths
+
+
+def spkpos_many(ets: np.ndarray, frame: str) -> np.ndarray:
+    out = np.empty((ets.size, 3), dtype=np.float64)
+    chunk = 4096
+    for i0 in range(0, ets.size, chunk):
+        i1 = min(i0 + chunk, ets.size)
+        part = ets[i0:i1]
+        try:
+            p, _ = spice.spkpos("SUN", part, frame, "LT+S", "MOON")
