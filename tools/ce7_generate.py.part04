@@ -1,0 +1,125 @@
+                 loc="left", fontsize=17, color=COLORS["text"])
+    ax.legend(frameon=False, loc="upper right")
+    fig.savefig(OUT / "ce7_daily_illumination_2026-2029.png", dpi=220)
+    fig.savefig(OUT / "ce7_daily_illumination_2026-2029.svg")
+    plt.close(fig)
+
+
+def save_horizon_plot(horizon: pd.DataFrame) -> None:
+    az = horizon["azimuth_deg"].to_numpy()
+    h = horizon["horizon_elevation_deg"].to_numpy()
+    d = horizon["controlling_distance_m"].to_numpy() / 1000.0
+    fig, ax = plt.subplots(figsize=(15, 6.8), constrained_layout=True)
+    ax.fill_between(az, np.minimum(h, 0), h, color=COLORS["visible"], alpha=0.25)
+    ax.plot(az, h, color=COLORS["horizon"], lw=1.2, label="Maximum terrain elevation angle")
+    ax.axhline(0, color=COLORS["zero"], lw=0.8, ls="--")
+    ax.set_xlim(0, 360)
+    ax.set_xticks(np.arange(0, 361, 45))
+    ax.set_xlabel("Azimuth (degrees clockwise from local north)")
+    ax.set_ylabel("Terrain horizon elevation (degrees)")
+    style_axes(ax)
+    ax.set_title("CE-7 site terrain horizon\n5 m sampling to 15 km, 20 m to 54 km, 40 m to 220 km",
+                 loc="left", fontsize=17, color=COLORS["text"])
+    # Annotate the strongest few peaks, separated in azimuth.
+    idx_sorted = np.argsort(h)[::-1]
+    selected: list[int] = []
+    for idx in idx_sorted:
+        if all(min(abs(az[idx] - az[j]), 360 - abs(az[idx] - az[j])) > 12 for j in selected):
+            selected.append(int(idx))
+        if len(selected) == 5:
+            break
+    for idx in selected:
+        ax.annotate(f"{az[idx]:.1f}°\n{d[idx]:.1f} km", (az[idx], h[idx]), xytext=(0, 10),
+                    textcoords="offset points", ha="center", fontsize=8, color=COLORS["text"])
+    ax.legend(frameon=False)
+    fig.savefig(OUT / "ce7_terrain_horizon.png", dpi=220)
+    fig.savefig(OUT / "ce7_terrain_horizon.svg")
+    plt.close(fig)
+
+
+def save_terrain_map(mid: RasterGrid, ground_elevation_m: float) -> None:
+    arr = mid.data
+    # Downsample for rendering while preserving the source raster in the computation.
+    stride = max(1, int(math.ceil(max(arr.shape) / 1800)))
+    z = arr[::stride, ::stride]
+    tr = mid.transform
+    px = tr.a * stride
+    py = tr.e * stride
+    x0 = tr.c + 0.5 * tr.a
+    y0 = tr.f + 0.5 * tr.e
+    xs = x0 + np.arange(z.shape[1]) * px
+    ys = y0 + np.arange(z.shape[0]) * py
+    sx, sy = site_projected_xy()
+    extent = [(xs[0] - sx) / 1000, (xs[-1] - sx) / 1000, (ys[-1] - sy) / 1000, (ys[0] - sy) / 1000]
+    vmin, vmax = np.nanpercentile(z, [2, 98])
+    ls = LightSource(azdeg=315, altdeg=32)
+    rgb = ls.shade(np.nan_to_num(z, nan=float(np.nanmedian(z))), cmap=plt.get_cmap("cividis"),
+                   vert_exag=1.4, blend_mode="overlay", vmin=vmin, vmax=vmax)
+    fig, ax = plt.subplots(figsize=(10.5, 9.5), constrained_layout=True)
+    ax.imshow(rgb, extent=extent, origin="upper")
+    ax.scatter([0], [0], marker="*", s=150, facecolor="#ff4d4d", edgecolor="white", linewidth=1.2, label="CE-7 point", zorder=5)
+    ax.scatter([(0 - sx) / 1000], [(0 - sy) / 1000], marker="*", s=125, facecolor="white", edgecolor="black", linewidth=0.9, label="Lunar south pole", zorder=5)
+    ax.text(0.7, 0.7, f"CE-7\n{ground_elevation_m:.1f} m", color="white", fontsize=9, weight="bold")
+    # 10 km scale bar in lower-right data coordinates.
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    xbar0 = xlim[1] - 15
+    ybar = min(ylim) + 7
+    ax.plot([xbar0 - 10, xbar0], [ybar, ybar], color="white", lw=3)
+    ax.text(xbar0 - 5, ybar + 1.5, "10 km", color="white", ha="center", fontsize=9)
+    ax.set_xlabel("East-west offset from CE-7 point (km, south-polar projection)")
+    ax.set_ylabel("Projected northing offset from CE-7 point (km)")
+    ax.set_title("CE-7 preselected landing point — regional terrain context\nNASA PGDA LOLA elevation mosaic; hillshade added for legibility",
+                 loc="left", fontsize=16, color=COLORS["text"])
+    ax.legend(frameon=True, facecolor="white", framealpha=0.8, loc="upper right")
+    fig.savefig(OUT / "ce7_site_terrain_map.png", dpi=220)
+    fig.savefig(OUT / "ce7_site_terrain_map.svg")
+    plt.close(fig)
+
+# --------------------------- documentation/output ---------------------------
+def write_csv_gz(df: pd.DataFrame, path: Path) -> None:
+    df.to_csv(path, index=False, compression="gzip", date_format="%Y-%m-%dT%H:%M:%SZ")
+
+
+def build_readme(
+    ground: float,
+    horizon: pd.DataFrame,
+    solar_meta: dict,
+    yearly: pd.DataFrame,
+    runs: pd.DataFrame,
+    raster_meta: dict,
+) -> str:
+    longest_vis = runs[runs.state == "sun_visible"].sort_values("duration_hours", ascending=False).head(1)
+    longest_dark = runs[runs.state == "dark"].sort_values("duration_hours", ascending=False).head(1)
+    lv = longest_vis.iloc[0].to_dict() if len(longest_vis) else {}
+    ld = longest_dark.iloc[0].to_dict() if len(longest_dark) else {}
+    year_table = yearly.to_markdown(index=False, floatfmt=".3f")
+    return f"""# CE-7 preselected landing site: terrain-aware illumination
+
+## Result
+
+This package models solar visibility at the publicly circulated CE-7 preselected landing point:
+
+- **Latitude:** {SITE_LAT_DEG:.5f}° (planetocentric; south)
+- **East longitude:** {SITE_LON_E_DEG:.5f}°
+- **DEM surface elevation at the point:** {ground:.3f} m above the 1,737,400 m reference sphere
+- **Observer height:** {OBSERVER_HEIGHT_M:.1f} m above the DEM surface
+- **Analysis interval:** {START_UTC} through {END_UTC} (end exclusive)
+- **Cadence:** {CADENCE_MIN} minutes
+
+The coordinate and 1.5 m observer height are reproduced from SegerYU's terrain-aware follow-up to the original terrain-free chart. This is a **preselected planning point, not an official final landing coordinate**.
+
+## Terrain used
+
+The terrain calculation nests the finest public gridded elevation product available at this point into wider-area terrain:
+
+1. **5 m/pixel local terrain, 0–15 km:** NASA PGDA `ldem_87s_5mpp`, a 87–90°S LOLA south-pole mosaic in the MOON_ME/DE421 frame.
+2. **20 m/pixel terrain, 15–54 km:** a 20 m resampling of the same 5 m mosaic.
+3. **40 m/pixel terrain, 54–220 km:** derived from NASA PGDA `LDEM_80S_20MPP_ADJ.TIF` (native 20 m/pixel COG) and sampled at 40 m for tractable horizon evaluation.
+
+At {AZ_STEP_DEG:.1f}° azimuth spacing, the code follows spherical great-circle rays, samples the nested DEMs, forms Moon-centered Cartesian line-of-sight geometry, and keeps the maximum terrain elevation angle in each direction. Lunar curvature is therefore included directly rather than as a flat-Earth correction.
+
+NASA's current public LROC NAC stereo-DTM index was also checked. No archived NAC DTM footprint contains this coordinate; the nearest indexed product begins about 32.8 km away. The 5 m LOLA mosaic is therefore the finest public elevation grid actually covering the point that could be identified for this analysis. A 5 m pixel grid should **not** be interpreted as independent 5 m laser sampling everywhere: interpolation and local effective resolution remain important.
+
+## Solar geometry
+
+Solar directions come from JPL NAIF SPICE using frame `{solar_meta['spice_frame']}` and the exact kernels listed in `metadata.json`. The apparent solar disk is not treated as a point: {N_DISK_SAMPLES} equal-area samples across the disk are tested against the azimuth-dependent terrain horizon at every time step.
