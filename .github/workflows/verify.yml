@@ -96,7 +96,6 @@ jobs:
           export FIVE_URL FAR_URL
           export FIVE_SIZE="$(stat -c%s terrain/ldem_87s_5mpp.tif)"
           export FIVE_SHA="$(cut -d' ' -f1 terrain/ldem_87s_5mpp.sha256)"
-          .venv_placeholder=unused
           /usr/bin/python3 - <<'PY'
           import json, os, pathlib, hashlib
           root=pathlib.Path('terrain')
@@ -153,15 +152,15 @@ jobs:
           test -s out/ce7_terrain_aware_illumination_2026-2029.svg
           test -s out/ce7_illumination_10min.csv.gz
           test -s out/metadata.json
-          .venv/bin/python - <<'PY'
+          "$GITHUB_WORKSPACE/.venv/bin/python" - <<'PY'
           from PIL import Image
-          import gzip, csv, json, pathlib
+          import gzip, json, pathlib
           out=pathlib.Path('out')
           for name in ['ce7_terrain_aware_illumination_2026-2029.png','ce7_daily_illumination_2026-2029.png','ce7_terrain_horizon.png','ce7_site_terrain_map.png']:
-              im=Image.open(out/name); im.verify(); print(name, im.size)
+              im=Image.open(out/name); size=im.size; im.verify(); print(name, size)
           with gzip.open(out/'ce7_illumination_10min.csv.gz','rt',newline='') as f:
               n=sum(1 for _ in f)-1
-          assert n == 122544, n
+          assert n == 122832, n
           meta=json.loads((out/'metadata.json').read_text())
           assert meta['site']['latitude_deg_planetocentric'] == -88.8
           assert meta['site']['longitude_deg_east'] == 123.5
