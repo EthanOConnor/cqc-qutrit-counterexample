@@ -2,6 +2,7 @@ name: CE7 script assembly diagnostic
 
 on:
   push:
+  pull_request:
 
 permissions:
   contents: read
