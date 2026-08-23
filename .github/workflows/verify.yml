@@ -1,4 +1,4 @@
-name: CE7 artifact recovery
+name: CE7 5m DEM inspection
 
 on:
   push:
@@ -9,47 +9,52 @@ permissions:
   contents: read
 
 jobs:
-  recover:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Fetch source mirrors and linked media
+      - uses: actions/checkout@v4
+      - name: Install GDAL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-gdal
+      - name: Inspect and crop public 5 m DEM
         shell: bash
         run: |
-          set -u
+          set -euxo pipefail
           mkdir -p out
-          fetch() {
-            name="$1"
-            url="$2"
-            echo "Fetching $url"
-            curl -A 'Mozilla/5.0' -L --connect-timeout 20 --max-time 90 -sS -D "out/${name}.headers" "$url" -o "out/$name" || true
-            wc -c "out/$name" 2>/dev/null || true
-          }
-          fetch fxtwitter.json 'https://api.fxtwitter.com/SegerYU/status/2091250852568932449'
-          fetch vxtwitter.json 'https://api.vxtwitter.com/SegerYU/status/2091250852568932449'
-          fetch syndication.json 'https://cdn.syndication.twimg.com/tweet-result?id=2091250852568932449&lang=en'
-          fetch oembed.json 'https://publish.twitter.com/oembed?url=https://twitter.com/SegerYU/status/2091250852568932449&omit_script=1'
-          fetch twstalker_mickey.html 'https://ngntipkolamrenang.twstalker.com/mickeywzx'
-          fetch twstalker_seger.html 'https://ngntipkolamrenang.twstalker.com/SegerYU'
-          grep -RhoE 'https?[^"'"'"'<> ]+' out | sed 's#\\/#/#g' | grep -E 'pbs\.twimg\.com|video\.twimg\.com' | sort -u > out/media_urls.txt || true
-          n=0
-          while IFS= read -r url; do
-            [ -n "$url" ] || continue
-            url="${url%\\}"
-            curl -A 'Mozilla/5.0' -L --connect-timeout 20 --max-time 120 -sS "$url" -o "out/media_${n}" || true
-            file "out/media_${n}" >> out/media_files.txt || true
-            printf '%s\t%s\n' "$n" "$url" >> out/media_map.tsv
-            n=$((n+1))
-          done < out/media_urls.txt
-          find out -maxdepth 1 -type f -printf '%f %s bytes\n' | sort | tee out/listing.txt
-
-      - name: Upload discovery files
-        uses: actions/upload-artifact@v4
+          URL='https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/87S/ldem_87s_5mpp.tif'
+          VSICURL="/vsicurl/${URL}"
+          export CPL_VSIL_CURL_ALLOWED_EXTENSIONS='.tif'
+          export GDAL_HTTP_MULTIRANGE='YES'
+          export VSI_CACHE='TRUE'
+          export VSI_CACHE_SIZE='50000000'
+          gdalinfo -json "$VSICURL" > out/ldem_87s_5mpp.gdalinfo.json
+          gdalinfo "$VSICURL" > out/ldem_87s_5mpp.gdalinfo.txt
+          # Site projected in south-polar stereographic (R=1,737,400 m): x=30344.56, y=-20084.63.
+          # Crop a 10 x 10 km validation window.
+          gdal_translate -of GTiff -co TILED=YES -co COMPRESS=DEFLATE \
+            -projwin 25344.5636 -15084.6285 35344.5636 -25084.6285 \
+            "$VSICURL" out/ce7_5m_test_crop.tif
+          gdalinfo -stats out/ce7_5m_test_crop.tif > out/ce7_5m_test_crop.gdalinfo.txt
+          python3 - <<'PY'
+          from osgeo import gdal, osr
+          import json, math
+          ds=gdal.Open('out/ce7_5m_test_crop.tif')
+          gt=ds.GetGeoTransform(); b=ds.GetRasterBand(1)
+          x,y=30344.56362155766,-20084.628521893053
+          px=(x-gt[0])/gt[1]; py=(y-gt[3])/gt[5]
+          ix,iy=int(math.floor(px)),int(math.floor(py))
+          v=float(b.ReadAsArray(ix,iy,1,1)[0,0])
+          info={'size':[ds.RasterXSize,ds.RasterYSize],'geotransform':gt,'site_pixel':[px,py],'site_value_m':v,'projection':ds.GetProjection()}
+          open('out/site_sample.json','w').write(json.dumps(info,indent=2))
+          print(json.dumps(info,indent=2))
+          PY
+          sha256sum out/* > out/sha256.txt
+          du -h out/* | sort -h
+      - uses: actions/upload-artifact@v4
         with:
-          name: ce7-discovery
+          name: ce7-5m-inspection
           path: out
           if-no-files-found: error
           retention-days: 1
